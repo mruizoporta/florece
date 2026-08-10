@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+apps/*/node_modules/
+packages/*/node_modules/
+
+# Python / local tooling
+.venv/
+venv/
+__pycache__/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+apps/api/.env
+apps/web/.env.local
+
+# Builds
+dist/
+apps/api/dist/
+apps/web/.next/
+packages/shared/dist/
+coverage/
+
+# Laravel legacy dumps / caches
+/storage/app/db-migrate/
+legacy/laravel/vendor/
+legacy/laravel/storage/logs/
+legacy/laravel/storage/framework/
+*.phpunit.result.cache
+.DS_Store

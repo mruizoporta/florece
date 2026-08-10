@@ -1,0 +1,630 @@
+/**
+ * Dashboard Shearly — Tailwind sin preflight (coexiste con CoreUI).
+ * Sistema visual unificado con la landing: tokens `brand-*`, fondo gray-50, sidebar #111827.
+ */
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    /* —— Shell + tokens (sin @tailwind base / preflight) —— */
+    .shearly-dashboard {
+        --ds-bg: theme('colors.gray.50');
+        --ds-surface: theme('colors.white');
+        --ds-border: theme('colors.gray.100');
+        --ds-text: theme('colors.brand.text');
+        --ds-text-muted: theme('colors.brand.textMuted');
+        --ds-primary: theme('colors.brand.primary');
+        --ds-primary-on: theme('colors.brand.primary-dark');
+        --ds-sidebar: #111827;
+        @apply min-h-screen bg-gray-50 font-sans text-brand-text antialiased;
+    }
+
+    .shearly-dashboard-shell {
+        @apply flex min-h-screen flex-col bg-gray-50;
+    }
+
+    .shearly-dashboard .body {
+        @apply bg-gray-50;
+        padding-top: 0.65rem;
+    }
+
+    .shearly-dashboard .container-fluid {
+        padding-left: 1.1rem;
+        padding-right: 1.1rem;
+    }
+
+    @media (min-width: 1024px) {
+        .shearly-dashboard .container-fluid {
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+    }
+
+    /* —— Sidebar oscuro (#111827) —— */
+    .shearly-sidebar {
+        background-color: var(--ds-sidebar);
+        @apply border-r border-white/10 shadow-[8px_0_28px_-18px_rgba(15,23,42,0.85)];
+        color: #e5e7eb;
+    }
+
+    .shearly-sidebar .sidebar-nav {
+        @apply px-2 pb-3;
+    }
+
+    .shearly-sidebar .sidebar-brand {
+        @apply border-b border-white/10 py-4;
+    }
+
+    .shearly-sidebar .sidebar-brand a,
+    .shearly-sidebar .sidebar-brand .text-brand-ink,
+    .shearly-sidebar .sidebar-brand .text-brand-ink-muted,
+    .shearly-sidebar .sidebar-brand .font-serif,
+    .shearly-sidebar .sidebar-brand .text-shearly-800 {
+        color: #f9fafb !important;
+    }
+
+    .shearly-brand-link {
+        letter-spacing: -0.01em;
+    }
+
+    .shearly-salon-label {
+        color: rgba(226, 232, 240, 0.7);
+    }
+
+    .shearly-sidebar .sidebar-brand .small {
+        @apply text-slate-400;
+    }
+
+    .shearly-sidebar .nav-title {
+        @apply mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider;
+        color: rgba(148, 163, 184, 0.9);
+    }
+
+    .shearly-sidebar .nav-link,
+    .shearly-sidebar .nav-group-toggle {
+        @apply mx-2 rounded-xl border-0 transition-all duration-150;
+        color: rgba(229, 231, 235, 0.92);
+        padding-top: 0.62rem;
+        padding-bottom: 0.62rem;
+    }
+
+    .shearly-sidebar .nav-link:hover,
+    .shearly-sidebar .nav-group-toggle:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #fff;
+    }
+
+    .shearly-sidebar .nav-link.active {
+        @apply font-semibold text-white;
+        background-color: rgba(255, 255, 255, 0.14);
+        box-shadow: inset 3px 0 0 0 var(--ds-primary);
+    }
+
+    .shearly-sidebar .nav-group-items .nav-link {
+        color: rgba(203, 213, 225, 0.88);
+    }
+
+    .shearly-sidebar .nav-icon {
+        @apply text-slate-300;
+        opacity: 0.95;
+    }
+
+    .shearly-sidebar .nav-link.active .nav-icon {
+        color: var(--ds-primary);
+    }
+
+    .shearly-sidebar .sidebar-toggler {
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #e5e7eb;
+    }
+
+    .shearly-sidebar-site-link-wrap {
+        @apply px-2 pb-3 pt-2;
+    }
+
+    .shearly-sidebar-site-link {
+        @apply rounded-xl border border-white/10 bg-white/5 font-medium;
+    }
+
+    .shearly-sidebar-site-link:hover {
+        @apply border-white/20 bg-white/10;
+    }
+
+    .shearly-sidebar .nav-item.mt-auto .nav-link {
+        color: rgba(255, 255, 255, 0.65) !important;
+    }
+
+    .shearly-sidebar .nav-item.mt-auto .nav-link:hover {
+        color: #fff !important;
+    }
+
+    /* —— Header / topbar —— */
+    .shearly-header-main {
+        @apply sticky top-0 z-30 mb-0 border-0 bg-transparent shadow-none;
+        backdrop-filter: none;
+        padding-top: 0.8rem;
+        margin-bottom: 0.45rem;
+    }
+
+    .shearly-topbar {
+        @apply flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200/90 bg-white px-4 py-4 shadow-sm md:px-6 md:py-5;
+        margin-bottom: 1rem;
+    }
+
+    .shearly-topbar-title {
+        @apply mb-0 truncate font-serif font-semibold;
+        color: var(--ds-text);
+    }
+
+    .shearly-topbar-subtitle {
+        @apply mt-1;
+    }
+
+    .shearly-topbar-cta {
+        @apply px-3 py-2;
+    }
+
+    .shearly-breadcrumb-wrap {
+        @apply mt-2 rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm;
+    }
+
+    .shearly-main-container {
+        @apply pb-5;
+        max-width: 1700px;
+    }
+
+    .shearly-page-stack {
+        @apply flex flex-col gap-6;
+    }
+
+    /* Home dashboard: textos de estado en placeholders lazy (SSR, sin esperar a JS) */
+    .shearly-dashboard-home .shearly-widget-loading-label {
+        margin: 0;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: theme('colors.brand.textMuted');
+        animation: shearly-loading-fade 1.4s ease-in-out infinite;
+    }
+
+    @keyframes shearly-loading-fade {
+        0%,
+        100% {
+            opacity: 0.55;
+        }
+        50% {
+            opacity: 1;
+        }
+    }
+
+    .shearly-dashboard-kpi-shell {
+        min-height: 6.75rem;
+    }
+
+    .shearly-kpi-grid {
+        margin-top: 0.25rem;
+    }
+
+    /* —— Cards (landing: blanco, xl, sombra suave) —— */
+    .shearly-section-surface {
+        @apply rounded-xl border border-gray-100 bg-white shadow-sm;
+    }
+
+    .shearly-kpi-card {
+        @apply overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow duration-200;
+    }
+
+    .shearly-kpi-card:hover {
+        @apply shadow-md;
+    }
+
+    .shearly-kpi-icon {
+        @apply flex h-full min-h-[5rem] w-16 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-600 sm:w-[4.5rem];
+    }
+
+    .shearly-kpi-metric .display-6 {
+        color: var(--ds-text) !important;
+        font-size: 2rem;
+        letter-spacing: -0.02em;
+    }
+
+    .shearly-card-section {
+        @apply rounded-2xl border border-gray-100 bg-white shadow-sm;
+    }
+
+    .shearly-card-head {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 md:px-6;
+    }
+
+    .shearly-card-title {
+        @apply font-serif text-lg font-semibold tracking-tight text-brand-text;
+    }
+
+    .shearly-card {
+        @apply rounded-xl border border-gray-100 bg-white shadow-sm;
+    }
+
+    .shearly-card-header {
+        @apply flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3;
+    }
+
+    .shearly-card-body {
+        @apply px-4 py-4;
+    }
+
+    .shearly-dashboard .card {
+        @apply rounded-xl border border-gray-100 shadow-sm;
+        border-radius: 0.75rem;
+    }
+
+    .shearly-dashboard .card .card-header {
+        @apply border-b border-gray-100 bg-transparent font-semibold;
+        padding: 0.95rem 1.15rem;
+    }
+
+    .shearly-dashboard .card .card-body {
+        padding: 1rem 1.15rem;
+    }
+
+    /* —— Botones = CTA landing (amarillo) —— */
+    .shearly-btn-primary,
+    .shearly-dashboard .btn-primary {
+        @apply border-0 font-semibold shadow-[0_8px_14px_-10px_rgba(202,138,4,0.55)];
+        @apply bg-brand-primary text-brand-primary-dark;
+    }
+
+    .shearly-btn-primary:hover,
+    .shearly-dashboard .btn-primary:hover {
+        @apply bg-brand-primary-hover text-brand-primary-dark;
+    }
+
+    .shearly-btn-primary:focus-visible,
+    .shearly-dashboard .btn-primary:focus-visible {
+        @apply shadow-lg shadow-brand-primary/30 outline-none ring-2 ring-brand-primary ring-offset-2 ring-offset-white;
+    }
+
+    .shearly-btn-secondary,
+    .shearly-dashboard .btn-outline-secondary {
+        @apply font-semibold text-brand-text;
+        border-color: rgba(100, 116, 139, 0.28);
+        background-color: rgba(255, 255, 255, 0.95);
+    }
+
+    .shearly-btn-secondary:hover,
+    .shearly-dashboard .btn-outline-secondary:hover {
+        @apply text-brand-text;
+        border-color: rgba(100, 116, 139, 0.4);
+        background-color: rgba(249, 250, 251, 0.95);
+    }
+
+    .shearly-dashboard .btn {
+        @apply rounded-xl;
+    }
+
+    /* —— Formularios —— */
+    .shearly-input,
+    .shearly-dashboard .form-control,
+    .shearly-dashboard .form-select {
+        @apply min-h-[2.7rem] rounded-xl border border-gray-200 bg-white shadow-none;
+    }
+
+    .shearly-input:focus,
+    .shearly-dashboard .form-control:focus,
+    .shearly-dashboard .form-select:focus {
+        @apply border-brand-primary/50 ring-2 ring-brand-primary/25;
+    }
+
+    /* —— Tablas —— */
+    .shearly-table-wrap table {
+        @apply mb-0;
+    }
+
+    .shearly-table,
+    .shearly-dashboard .table {
+        @apply align-middle;
+    }
+
+    .shearly-table-wrap thead th,
+    .shearly-table thead th,
+    .shearly-dashboard .table thead th {
+        @apply border-0 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-brand-textMuted;
+        padding-top: 0.95rem;
+        padding-bottom: 0.95rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+    }
+
+    .shearly-table-wrap tbody tr,
+    .shearly-table tbody tr,
+    .shearly-dashboard .table tbody tr {
+        @apply border-gray-100 transition-colors;
+    }
+
+    .shearly-table-wrap tbody tr:hover,
+    .shearly-table tbody tr:hover,
+    .shearly-dashboard .table tbody tr:hover {
+        @apply bg-gray-50;
+    }
+
+    .shearly-dashboard .table td,
+    .shearly-dashboard .table th {
+        padding-top: 0.95rem;
+        padding-bottom: 0.95rem;
+    }
+
+    /* —— Badges —— */
+    .shearly-badge-soft {
+        @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+    }
+
+    .shearly-badge,
+    .shearly-dashboard .badge {
+        @apply rounded-full font-semibold;
+        font-size: 0.72rem;
+        padding: 0.4rem 0.65rem;
+        letter-spacing: 0.01em;
+    }
+
+    .shearly-badge-muted {
+        @apply bg-gray-100 text-gray-700;
+    }
+
+    .shearly-badge-success {
+        background: rgba(22, 163, 74, 0.12);
+        color: #166534;
+    }
+
+    .shearly-badge-danger {
+        background: rgba(220, 38, 38, 0.12);
+        color: #991b1b;
+    }
+
+    /* —— Modales —— */
+    .shearly-modal .modal-content,
+    .shearly-dashboard .modal-content {
+        @apply overflow-hidden rounded-2xl border border-gray-100 shadow-xl;
+    }
+
+    .shearly-modal .modal-header,
+    .shearly-dashboard .modal-header {
+        @apply border-b border-gray-100 bg-white;
+    }
+
+    .shearly-modal .modal-footer,
+    .shearly-dashboard .modal-footer {
+        @apply border-t border-gray-100 bg-gray-50;
+    }
+
+    /* —— Demo banner —— */
+    .shearly-demo-banner {
+        @apply border-b border-amber-200/60 bg-amber-50/80 text-center text-sm text-brand-text;
+        backdrop-filter: blur(4px);
+    }
+
+    .shearly-dashboard .dropdown-menu {
+        @apply rounded-xl border border-gray-100 shadow-lg;
+    }
+
+    .shearly-chart-shell {
+        min-height: 230px;
+    }
+
+    .shearly-chart-shell > p {
+        color: var(--ds-text-muted);
+    }
+
+    .shearly-onboarding-card {
+        @apply border-amber-100/70 bg-gradient-to-r from-amber-50/70 via-white to-amber-50/40;
+    }
+
+    .shearly-onboarding-icon {
+        width: 44px;
+        height: 44px;
+        background: rgba(250, 204, 21, 0.2);
+        color: #a16207;
+    }
+
+    .shearly-onboarding-link {
+        border-color: rgba(148, 163, 184, 0.35) !important;
+        transition: all 0.2s ease;
+    }
+
+    .shearly-onboarding-link:hover {
+        border-color: rgba(250, 204, 21, 0.45) !important;
+        background: rgba(255, 255, 255, 0.96);
+        transform: translateY(-1px);
+    }
+
+    /* Breadcrumb (layout nuevo, sin Bootstrap) */
+    .shearly-breadcrumb-wrap li:not(:first-child)::before {
+        content: '/';
+        margin-right: 0.5rem;
+        color: rgb(148 163 184);
+        font-weight: 500;
+    }
+
+    .shearly-user-menu-summary:focus-visible {
+        @apply outline-none ring-2 ring-brand-primary/40 ring-offset-2;
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       KPI CARDS — visual upgrade
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .shearly-kpi-card {
+        @apply overflow-hidden rounded-2xl border border-brand-blush-light/60 bg-white shadow-sm transition-shadow duration-200;
+        background-image: linear-gradient(140deg, #fff 0%, theme('colors.brand.rose-mist') 100%);
+    }
+
+    .shearly-kpi-card:hover {
+        @apply shadow-md;
+    }
+
+    .shearly-kpi-icon {
+        @apply flex min-h-[4.5rem] w-14 shrink-0 items-center justify-center rounded-xl
+               border border-brand-primary/20 bg-brand-primary/10 text-brand-primary-dark sm:w-16;
+    }
+
+    .shearly-kpi-metric .display-6 {
+        color: theme('colors.brand.ink') !important;
+        font-size: 2.25rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.03em;
+        line-height: 1;
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       SECTION CARDS — bordes cálidos, sin gris frío
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .shearly-card-section {
+        @apply rounded-2xl border border-brand-blush-light/60 bg-white shadow-sm;
+    }
+
+    .shearly-card-head {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-brand-blush-light/60 px-5 py-4 md:px-6;
+    }
+
+    .shearly-card-title {
+        @apply font-serif text-lg font-semibold tracking-tight text-brand-ink;
+    }
+
+    /* Table: width full + hover cálido */
+    .shearly-table-wrap {
+        @apply overflow-x-auto;
+    }
+
+    .shearly-table-wrap table {
+        width: 100%;
+        border-collapse: collapse;
+        @apply mb-0;
+    }
+
+    .shearly-table-wrap tbody tr:hover,
+    .shearly-table tbody tr:hover {
+        background-color: theme('colors.brand.rose-mist' / 50%);
+    }
+
+    .shearly-table-wrap thead th,
+    .shearly-table thead th {
+        @apply bg-brand-warm/60;
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       FORM FIELDS — sistema de inputs Shearly (brand tokens)
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .shearly-label {
+        @apply block text-xs font-medium text-brand-ink-muted;
+        margin-bottom: 0.25rem;
+    }
+
+    .shearly-input {
+        @apply w-full rounded-xl border border-brand-blush-light bg-white px-3.5 py-2.5 text-sm text-brand-ink transition;
+    }
+
+    .shearly-input::placeholder {
+        color: rgba(107, 114, 128, 0.55); /* brand-ink-muted/55 */
+    }
+
+    .shearly-input:focus {
+        @apply border-brand-primary/40 outline-none;
+        box-shadow: 0 0 0 3px rgba(255, 210, 0, 0.18); /* brand-primary/18 */
+    }
+
+    .shearly-input.is-invalid {
+        @apply border-red-300;
+    }
+
+    .shearly-input.is-invalid:focus {
+        border-color: #f87171;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+    }
+
+    .shearly-select {
+        @apply w-full rounded-xl border border-brand-blush-light bg-white px-3.5 py-2.5 text-sm text-brand-ink transition;
+    }
+
+    .shearly-select:focus {
+        @apply border-brand-primary/40 outline-none;
+        box-shadow: 0 0 0 3px rgba(255, 210, 0, 0.18);
+    }
+
+    .shearly-select.is-invalid {
+        @apply border-red-300;
+    }
+
+    .shearly-error {
+        @apply text-xs text-red-500;
+        margin-top: 0.25rem;
+    }
+
+    .shearly-checkbox {
+        @apply h-4 w-4 rounded cursor-pointer;
+        accent-color: #FFD200; /* brand-primary */
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       BOOTSTRAP UTILITY SHIMS — transitional, mínimos
+       Solo los que siguen siendo usados por widgets legacy.
+       Reemplazar con Tailwind nativo al migrar cada módulo.
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+    /* Font weight / line-height */
+    .fw-bold     { font-weight: 700 !important; }
+    .fw-semibold { font-weight: 600 !important; }
+    .fw-medium   { font-weight: 500 !important; }
+    .lh-1        { line-height: 1 !important; }
+
+    /* Text colors */
+    .text-dark   { color: theme('colors.brand.ink') !important; }
+    .text-muted  { color: theme('colors.brand.ink-muted') !important; }
+    .small       { font-size: 0.875em !important; }
+    .text-nowrap { white-space: nowrap !important; }
+
+    /* Bootstrap utility: display-6 base (overridden by .shearly-kpi-metric .display-6) */
+    .display-6 {
+        font-size: 2.5rem;
+        font-weight: 300;
+        line-height: 1.2;
+    }
+
+    /* Table layout */
+    .table-responsive { overflow-x: auto; }
+
+    /* Spacing (Bootstrap logical props) */
+    .ps-3 { padding-inline-start: 0.75rem !important; }
+    .pe-3 { padding-inline-end: 0.75rem !important; }
+    .me-1 { margin-inline-end: 0.25rem !important; }
+
+    /* Badge shape */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35em 0.7em;
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1;
+        white-space: nowrap;
+        border-radius: 50rem;
+    }
+
+    .rounded-pill { border-radius: 50rem !important; }
+
+    /* Bootstrap dynamic bg colors used in appointment type/status badges */
+    .bg-success  { background-color: rgba(22,163,74,0.12) !important; color: #166534 !important; }
+    .bg-danger   { background-color: rgba(220,38,38,0.12)  !important; color: #991b1b !important; }
+    .bg-warning  { background-color: rgba(202,138,4,0.15)  !important; color: #854d0e !important; }
+    .bg-info     { background-color: rgba(14,165,233,0.12) !important; color: #075985 !important; }
+    .bg-primary  { background-color: rgba(255,210,0,0.20)  !important; color: #665500 !important; }
+    .bg-secondary{ background-color: rgba(107,114,128,0.12)!important; color: #374151 !important; }
+    .bg-light    { background-color: #f9fafb !important; color: #111827 !important; }
+    .bg-dark     { background-color: rgba(17,24,39,0.9)    !important; color: #f9fafb !important; }
+
+    /* CoreUI/Bootstrap display helpers */
+    .d-inline-block { display: inline-block !important; }
+    .rounded-circle { border-radius: 50% !important; }
+    .rounded-2      { border-radius: 0.375rem !important; }
+    .rounded-3      { border-radius: 0.5rem !important; }
+    .border-0       { border: 0 !important; }
+    .align-middle   { vertical-align: middle !important; }
+    .mb-0           { margin-bottom: 0 !important; }
+}

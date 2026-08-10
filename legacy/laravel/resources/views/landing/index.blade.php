@@ -1,0 +1,14 @@
+<div>
+    @include('landing.partials.nav')
+    @include('landing.partials.hero')
+    @include('landing.partials.value-props')
+    @include('landing.partials.modules')
+    @include('landing.partials.how-it-works')
+    @include('landing.partials.pricing')
+    @include('landing.partials.growth')
+    @include('landing.partials.faq')
+    @include('landing.partials.contact')
+    @include('landing.partials.cta')
+    @include('landing.partials.footer')
+    @include('landing.partials.floating-whatsapp')
+</div>

@@ -1,0 +1,22 @@
+[Unit]
+Description=Florece Web (Next.js)
+After=network.target florece-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/florece
+EnvironmentFile=/opt/florece/.env
+Environment=NODE_ENV=production
+Environment=PORT=3021
+ExecStart=/usr/bin/npm run start -w @florece/web -- -p 3021
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=florece-web
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

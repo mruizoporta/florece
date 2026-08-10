@@ -1,0 +1,702 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id                   BigInt    @id @default(autoincrement())
+  name                 String
+  billingRegion        String?   @map("billing_region") @db.VarChar(2)
+  billingEmail         String?   @map("billing_email")
+  planId               BigInt?   @map("plan_id")
+  scheduledPlanId      BigInt?   @map("scheduled_plan_id")
+  subscriptionStatus   String    @default("trial") @map("subscription_status") @db.VarChar(20)
+  subscriptionEndsAt   DateTime? @map("subscription_ends_at")
+  trialEndsAt          DateTime? @map("trial_ends_at")
+  pastDueSince         DateTime? @map("past_due_since")
+  adminNote            String?   @map("admin_note") @db.Text
+  featureOverrides     Json?     @map("feature_overrides")
+  stripeId             String?   @map("stripe_id")
+  pmType               String?   @map("pm_type")
+  pmLastFour           String?   @map("pm_last_four")
+  createdAt            DateTime? @map("created_at")
+  updatedAt            DateTime? @map("updated_at")
+
+  plan          Plan?                 @relation("OrganizationPlan", fields: [planId], references: [id])
+  scheduledPlan Plan?                 @relation("OrganizationScheduledPlan", fields: [scheduledPlanId], references: [id])
+  tenants       Tenant[]
+  members       OrganizationMember[]
+  saasPayments  SaasPayment[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             BigInt   @id @default(autoincrement())
+  organizationId BigInt   @map("organization_id")
+  userId         BigInt   @map("user_id")
+  orgRole        String   @default("MEMBER") @map("org_role") @db.VarChar(20)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model BranchMembership {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  tenantId  BigInt   @map("tenant_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("branch_memberships")
+}
+
+model Tenant {
+  id             BigInt    @id @default(autoincrement())
+  organizationId BigInt    @map("organization_id")
+  name           String
+  slug           String    @unique
+  isDemo         Boolean   @default(false) @map("is_demo")
+  locale         String    @default("es") @db.VarChar(10)
+  createdAt      DateTime? @map("created_at")
+  updatedAt      DateTime? @map("updated_at")
+
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users            User[]
+  branchMemberships BranchMembership[]
+  employees        Employee[]
+  customers        Customer[]
+  appointments     Appointment[]
+  categories       Category[]
+  items            Item[]
+  orders           Order[]
+  orderPayments    OrderPayment[]
+  sections         Section[]
+  settings         Setting[]
+  statuses         Status[]
+  types            Type[]
+  socials          Social[]
+  subscriptions    Subscription[]
+  refreshTokens    RefreshToken[]
+  sponsors         Sponsor[]
+  instagramFeeds   InstagramFeed[]
+  expenseCategories ExpenseCategory[]
+  expenses         Expense[]
+  cashSessions     CashSession[]
+
+  @@index([organizationId])
+  @@map("tenants")
+}
+
+model Plan {
+  id              BigInt    @id @default(autoincrement())
+  name            String
+  slug            String    @unique
+  stripePriceIdNi String?   @map("stripe_price_id_ni")
+  stripePriceIdUs String?   @map("stripe_price_id_us")
+  priceUsMonthly  Decimal?  @map("price_us_monthly") @db.Decimal(10, 2)
+  priceNiMonthly  Decimal?  @map("price_ni_monthly") @db.Decimal(10, 2)
+  currencyUs      String    @default("USD") @map("currency_us") @db.VarChar(3)
+  currencyNi      String    @default("NIO") @map("currency_ni") @db.VarChar(3)
+  interval        String    @default("month")
+  maxEmployees    Int?      @map("max_employees")
+  maxServices     Int?      @map("max_services")
+  features        String[]  @default([])
+  entitlements    Json      @default("{}")
+  active          Boolean   @default(true)
+  trialDays       Int       @default(14) @map("trial_days")
+  createdAt       DateTime? @map("created_at")
+  updatedAt       DateTime? @map("updated_at")
+
+  organizations          Organization[] @relation("OrganizationPlan")
+  scheduledOrganizations Organization[] @relation("OrganizationScheduledPlan")
+  saasPayments           SaasPayment[]
+
+  @@map("plans")
+}
+
+model User {
+  id              BigInt    @id @default(autoincrement())
+  name            String
+  email           String
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  password        String
+  image           String    @default("default.png")
+  rememberToken   String?   @map("remember_token")
+  tenantId        BigInt    @map("tenant_id")
+  platformRole    String?   @map("platform_role") @db.VarChar(32)
+  createdAt       DateTime? @map("created_at")
+  updatedAt       DateTime? @map("updated_at")
+
+  tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer             Customer?
+  refreshTokens        RefreshToken[]
+  modelHasRoles        ModelHasRole[]
+  saasPaymentsRecorded SaasPayment[]        @relation("SaasPaymentRecordedBy")
+  organizationMembers  OrganizationMember[]
+  branchMemberships    BranchMembership[]
+  expensesRecorded     Expense[]            @relation("ExpenseRecordedBy")
+  cashSessionsOpened   CashSession[]        @relation("CashSessionOpenedBy")
+  cashSessionsClosed   CashSession[]        @relation("CashSessionClosedBy")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model SaasPayment {
+  id             BigInt   @id @default(autoincrement())
+  organizationId BigInt   @map("organization_id")
+  amount         Decimal  @db.Decimal(14, 2)
+  currency       String   @default("NIO") @db.VarChar(3)
+  method         String   @db.VarChar(20)
+  reference      String?
+  paidAt         DateTime @map("paid_at")
+  months         Int      @default(1)
+  note           String?  @db.Text
+  recordedById   BigInt   @map("recorded_by_id")
+  planId         BigInt?  @map("plan_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recordedBy   User         @relation("SaasPaymentRecordedBy", fields: [recordedById], references: [id])
+  plan         Plan?        @relation(fields: [planId], references: [id])
+
+  @@index([organizationId])
+  @@index([paidAt])
+  @@map("saas_payments")
+}
+
+model RefreshToken {
+  id        BigInt   @id @default(autoincrement())
+  tokenHash String   @unique @map("token_hash")
+  userId    BigInt   @map("user_id")
+  tenantId  BigInt   @map("tenant_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Role {
+  id        BigInt    @id @default(autoincrement())
+  name      String
+  guardName String    @map("guard_name")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  modelHasRoles ModelHasRole[]
+
+  @@unique([name, guardName])
+  @@map("roles")
+}
+
+model ModelHasRole {
+  roleId    BigInt @map("role_id")
+  modelType String @map("model_type")
+  modelId   BigInt @map("model_id")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, modelId, modelType])
+  @@map("model_has_roles")
+}
+
+model Employee {
+  id          BigInt   @id @default(autoincrement())
+  name        String
+  description String
+  image       String
+  status      Boolean  @default(true)
+  tenantId    BigInt   @map("tenant_id")
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  schedules    Schedule[]
+  appointments Appointment[]
+  personalInfo PersonalInformation?
+  orders       Order[]
+  socials      EmployeeSocial[]
+
+  @@map("employees")
+}
+
+model Schedule {
+  id         BigInt  @id @default(autoincrement())
+  employeeId BigInt  @map("employee_id")
+  weekday    Int
+  startTime  DateTime @map("start_time") @db.Time(0)
+  endTime    DateTime @map("end_time") @db.Time(0)
+  status     Boolean @default(false)
+  tenantId   BigInt? @map("tenant_id")
+  createdAt  DateTime? @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
+}
+
+model PersonalInformation {
+  id         BigInt  @id @default(autoincrement())
+  employeeId BigInt  @unique @map("employee_id")
+  document   String?
+  location   String?
+  address    String?
+  phone      String?
+  createdAt  DateTime? @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("personal_information")
+}
+
+model Customer {
+  id        BigInt  @id @default(autoincrement())
+  userId    BigInt  @unique @map("user_id")
+  tenantId  BigInt  @map("tenant_id")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  orders       Order[]
+
+  @@map("customers")
+}
+
+model Category {
+  id        BigInt  @id @default(autoincrement())
+  name      String
+  slug      String?
+  tenantId  BigInt  @map("tenant_id")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  Item[]
+
+  @@unique([tenantId, name])
+  @@map("categories")
+}
+
+model Item {
+  id          BigInt   @id @default(autoincrement())
+  categoryId  BigInt   @map("category_id")
+  name        String
+  slug        String
+  description String
+  price       Decimal  @db.Decimal(10, 2)
+  image       String?
+  status      Boolean  @default(true)
+  tenantId    BigInt   @map("tenant_id")
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  category Category  @relation(fields: [categoryId], references: [id])
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service  Service?
+  product  Product?
+  orderLines ItemOrder[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, slug])
+  @@map("items")
+}
+
+model Service {
+  id           BigInt @id @default(autoincrement())
+  itemId       BigInt @unique @map("item_id")
+  durationTime Int    @default(30) @map("duration_time")
+  createdAt    DateTime? @map("created_at")
+  updatedAt    DateTime? @map("updated_at")
+
+  item                 Item                  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  appointmentServices  AppointmentService[]
+
+  @@map("services")
+}
+
+model Product {
+  id        BigInt  @id @default(autoincrement())
+  itemId    BigInt  @unique @map("item_id")
+  stock     Int     @default(0)
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  item   Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  images Image[]
+
+  @@map("products")
+}
+
+model Status {
+  id          BigInt  @id @default(autoincrement())
+  name        String
+  description String  @default("")
+  color       String? @map("bg_color")
+  tenantId    BigInt  @map("tenant_id")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@map("status")
+}
+
+model Type {
+  id          BigInt  @id @default(autoincrement())
+  name        String
+  description String  @default("")
+  color       String? @map("bg_color")
+  tenantId    BigInt  @map("tenant_id")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@map("types")
+}
+
+model Appointment {
+  id         BigInt    @id @default(autoincrement())
+  customerId BigInt    @map("customer_id")
+  employeeId BigInt?   @map("employee_id")
+  statusId   BigInt    @map("status_id")
+  typeId     BigInt    @map("type_id")
+  name       String
+  phone      String?
+  startTime  DateTime? @map("start_time")
+  endTime    DateTime? @map("end_time")
+  tenantId   BigInt    @map("tenant_id")
+  createdAt  DateTime? @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
+
+  customer Customer             @relation(fields: [customerId], references: [id])
+  employee Employee?            @relation(fields: [employeeId], references: [id])
+  status   Status               @relation(fields: [statusId], references: [id])
+  type     Type                 @relation(fields: [typeId], references: [id])
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  services AppointmentService[]
+
+  @@index([tenantId, startTime])
+  @@map("appointments")
+}
+
+model AppointmentService {
+  id            BigInt @id @default(autoincrement())
+  appointmentId BigInt @map("appointment_id")
+  serviceId     BigInt @map("service_id")
+  createdAt     DateTime? @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service     @relation(fields: [serviceId], references: [id])
+
+  @@map("appointment_services")
+}
+
+model Order {
+  id              BigInt    @id @default(autoincrement())
+  customerId      BigInt?   @map("customer_id")
+  employeeId      BigInt?   @map("employee_id")
+  name            String?
+  status          String    @default("draft") @db.VarChar(20)
+  paymentStatus   Boolean   @default(false) @map("payment_status")
+  subtotal        Decimal   @default(0) @db.Decimal(10, 2)
+  discountTotal   Decimal   @default(0) @map("discount_total") @db.Decimal(10, 2)
+  taxTotal        Decimal   @default(0) @map("tax_total") @db.Decimal(10, 2)
+  total           Decimal   @default(0) @db.Decimal(10, 2)
+  finalizedAt     DateTime? @map("finalized_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancelledReason String?   @map("cancelled_reason")
+  tenantId        BigInt    @map("tenant_id")
+  createdAt       DateTime? @map("created_at")
+  updatedAt       DateTime? @map("updated_at")
+
+  customer Customer?      @relation(fields: [customerId], references: [id])
+  employee Employee?      @relation(fields: [employeeId], references: [id])
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items    ItemOrder[]
+  payments OrderPayment[]
+
+  @@map("orders")
+}
+
+model ItemOrder {
+  id                   BigInt  @id @default(autoincrement())
+  orderId              BigInt  @map("order_id")
+  itemId               BigInt? @map("item_id")
+  productId            BigInt? @map("product_id")
+  quantity             Int     @default(1)
+  price                Decimal @default(0) @db.Decimal(10, 2)
+  productNameSnapshot  String? @map("product_name_snapshot")
+  unitPriceSnapshot    Decimal @default(0) @map("unit_price_snapshot") @db.Decimal(10, 2)
+  lineDiscount         Decimal @default(0) @map("line_discount") @db.Decimal(10, 2)
+  lineTax              Decimal @default(0) @map("line_tax") @db.Decimal(10, 2)
+  lineTotal            Decimal @default(0) @map("line_total") @db.Decimal(10, 2)
+  tenantId             BigInt? @map("tenant_id")
+  createdAt            DateTime? @map("created_at")
+  updatedAt            DateTime? @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  item  Item? @relation(fields: [itemId], references: [id])
+
+  @@map("item_order")
+}
+
+model OrderPayment {
+  id        BigInt    @id @default(autoincrement())
+  tenantId  BigInt    @map("tenant_id")
+  orderId   BigInt    @map("order_id")
+  method    String    @db.VarChar(20)
+  amount    Decimal   @default(0) @db.Decimal(10, 2)
+  reference String?
+  paidAt    DateTime? @map("paid_at")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("order_payments")
+}
+
+model Section {
+  id                    BigInt  @id @default(autoincrement())
+  aboutUsShowSection    Boolean @default(true) @map("about_us_show_section")
+  aboutUsText           String  @default("Sobre nosotros") @map("about_us_text")
+  aboutUsIcon           String  @default("icon-line-scissors fs-1") @map("about_us_icon")
+  employeesShowSection  Boolean @default(true) @map("employees_show_section")
+  employeesText         String  @default("Nuestro equipo") @map("employees_text")
+  employeesIcon         String  @default("icon-users fs-1") @map("employees_icon")
+  servicesShowSection   Boolean @default(true) @map("services_show_section")
+  servicesText          String  @default("Nuestros servicios") @map("services_text")
+  servicesIcon          String  @default("icon-sticky-note1 fs-1") @map("services_icon")
+  productsShowSection   Boolean @default(true) @map("products_show_section")
+  productsText          String  @default("Productos") @map("products_text")
+  productsIcon          String  @default("icon-tags fs-1") @map("products_icon")
+  instagramShowSection  Boolean @default(true) @map("instagram_show_section")
+  instagramText         String  @default("SEGUINOS EN INSTAGRAM") @map("instagram_text")
+  instagramIcon         String  @default("icon-instagram") @map("instagram_icon")
+  whatsappShowSection   Boolean @default(true) @map("whatsapp_show_section")
+  whatsappTitle1        String  @default("¿TIENES ALGUNA DUDA?") @map("whatsapp_title_1")
+  whatsappTitle2        String  @default("No dudes en consultar!") @map("whatsapp_title_2")
+  whatsappTitle3        String  @default("Al recibir tu mensaje responderemos a la brevedad.") @map("whatsapp_title_3")
+  whatsappIcon          String  @default("icon-whatsapp") @map("whatsapp_icon")
+  btnWhatsappButtonText String  @default("Abrir chat") @map("btn_whatsapp_button_text")
+  tenantId              BigInt  @map("tenant_id")
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("sections")
+}
+
+model Setting {
+  id                         BigInt  @id @default(autoincrement())
+  activeAppointment          Boolean @default(true) @map("active_appointment")
+  appointmentType            String  @default("blacklist") @map("appointment_type")
+  companyName                String? @map("company_name")
+  mailContact                String? @map("mail_contact")
+  location                   String?
+  address                    String?
+  phone                      String?
+  currencySymbol             String  @default("$") @map("currency_symbol")
+  whatsapp                   String?
+  instagramHref              String? @map("instagram_href")
+  embeddedContentMap         String? @map("embedded_content_map")
+  logo                       String  @default("your-logo.png")
+  banner                     String  @default("your-banner.jpg")
+  aboutUs                    String? @map("about_us")
+  schedules                  String?
+  imageLeft                  String  @default("image_left.jpg") @map("image_left")
+  imageRight                 String  @default("image_right.jpg") @map("image_right")
+  imageParallax              String  @default("image_parallax.jpg") @map("image_parallax")
+  buttonsBackgroundColor     String  @default("ff8585") @map("buttons_background_color")
+  buttonsTextColor           String  @default("ffffff") @map("buttons_text_color")
+  iconsColor                 String  @default("ff8585") @map("icons_color")
+  titlesColor                String  @default("ff8585") @map("titles_color")
+  footerBackgroundColor      String  @default("283747") @map("footer_background_color")
+  footerTextColor            String  @default("ffffff") @map("footer_text_color")
+  btnWhatsappBackgroundColor String  @default("128c7e") @map("btn_whatsapp_background_color")
+  btnWhatsappTextColor       String  @default("ffffff") @map("btn_whatsapp_text_color")
+  tenantId                   BigInt  @map("tenant_id")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+model Sponsor {
+  id        BigInt    @id @default(autoincrement())
+  name      String
+  image     String
+  tenantId  BigInt    @map("tenant_id")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("sponsors")
+}
+
+model InstagramFeed {
+  id        BigInt    @id @default(autoincrement())
+  content   String
+  tenantId  BigInt    @map("tenant_id")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("instagram_feeds")
+}
+
+model Image {
+  id        BigInt  @id @default(autoincrement())
+  productId BigInt  @map("product_id")
+  image     String
+  order     Int
+  tenantId  BigInt? @map("tenant_id")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("images")
+}
+
+model EmployeeSocial {
+  id         BigInt  @id @default(autoincrement())
+  employeeId BigInt  @map("employee_id")
+  socialId   BigInt  @map("social_id")
+  href       String
+  createdAt  DateTime? @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  social   Social   @relation(fields: [socialId], references: [id], onDelete: Cascade)
+
+  @@map("employee_social")
+}
+
+model Social {
+  id        BigInt  @id @default(autoincrement())
+  name      String?
+  icon      String?
+  tenantId  BigInt  @map("tenant_id")
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeSocials EmployeeSocial[]
+
+  @@map("socials")
+}
+
+model Subscription {
+  id                 BigInt    @id @default(autoincrement())
+  tenantId           BigInt    @map("tenant_id")
+  type               String
+  stripeId           String    @unique @map("stripe_id")
+  stripeStatus       String    @map("stripe_status")
+  stripePrice        String?   @map("stripe_price")
+  quantity           Int?
+  trialEndsAt        DateTime? @map("trial_ends_at")
+  endsAt             DateTime? @map("ends_at")
+  createdAt          DateTime? @map("created_at")
+  updatedAt          DateTime? @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, stripeStatus])
+  @@map("subscriptions")
+}
+
+model ExpenseCategory {
+  id        BigInt    @id @default(autoincrement())
+  tenantId  BigInt    @map("tenant_id")
+  name      String
+  slug      String
+  active    Boolean   @default(true)
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id           BigInt    @id @default(autoincrement())
+  tenantId     BigInt    @map("tenant_id")
+  categoryId   BigInt    @map("category_id")
+  amount       Decimal   @db.Decimal(12, 2)
+  currency     String    @default("NIO") @db.VarChar(3)
+  method       String    @db.VarChar(20)
+  spentAt      DateTime  @map("spent_at")
+  note         String?   @db.Text
+  receiptUrl   String?   @map("receipt_url")
+  recordedById BigInt    @map("recorded_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime? @map("updated_at")
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+  recordedBy User            @relation("ExpenseRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([tenantId, spentAt])
+  @@index([categoryId])
+  @@map("expenses")
+}
+
+model CashSession {
+  id            BigInt    @id @default(autoincrement())
+  tenantId      BigInt    @map("tenant_id")
+  status        String    @default("open") @db.VarChar(20)
+  openedAt      DateTime  @map("opened_at")
+  closedAt      DateTime? @map("closed_at")
+  openedById    BigInt    @map("opened_by_id")
+  closedById    BigInt?   @map("closed_by_id")
+  openingFloat  Decimal   @default(0) @map("opening_float") @db.Decimal(12, 2)
+  expectedCash  Decimal?  @map("expected_cash") @db.Decimal(12, 2)
+  countedCash   Decimal?  @map("counted_cash") @db.Decimal(12, 2)
+  difference    Decimal?  @db.Decimal(12, 2)
+  snapshot      Json?
+  note          String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  openedBy User   @relation("CashSessionOpenedBy", fields: [openedById], references: [id])
+  closedBy User?  @relation("CashSessionClosedBy", fields: [closedById], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, openedAt])
+  @@map("cash_sessions")
+}

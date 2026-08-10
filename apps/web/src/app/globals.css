@@ -1,0 +1,364 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  /* Florece premium: champagne + ink (product brand; salon sites use --salon-*) */
+  --brand-primary: #c4a574;
+  --brand-primary-hover: #b39463;
+  --brand-primary-dark: #6b5638;
+  --brand-ink: #161412;
+  --brand-ink-muted: #7a736c;
+  --brand-surface: #f9f8f6;
+  --brand-text: #161412;
+  --brand-text-muted: #7a736c;
+  --brand-base: #fbfaf7;
+  --brand-warm: #f5f2ee;
+  --brand-peach: #e8d5c8;
+  --brand-blush-light: #f3ebe4;
+  --brand-rose-mist: #f7f3ef;
+  --brand-mist: #f1ece6;
+  --brand-terracotta: #a89070;
+  --brand-card: rgba(255, 255, 255, 0.8);
+  --brand-elevated: #ffffff;
+  --brand-on-primary: #161412;
+
+  --background: var(--brand-base);
+  --foreground: var(--brand-text);
+}
+
+[data-theme="dark"] {
+  --brand-primary: #c4a574;
+  --brand-primary-hover: #d4b88a;
+  --brand-primary-dark: #e0c9a0;
+  --brand-ink: #f3efe9;
+  --brand-ink-muted: #a39a90;
+  --brand-surface: #1a1815;
+  --brand-text: #f3efe9;
+  --brand-text-muted: #a39a90;
+  --brand-base: #12110f;
+  --brand-warm: #1e1b18;
+  --brand-peach: #3a322c;
+  --brand-blush-light: #24201c;
+  --brand-rose-mist: #1c1916;
+  --brand-mist: #221f1b;
+  --brand-terracotta: #c4a574;
+  --brand-card: rgba(32, 28, 24, 0.88);
+  --brand-elevated: #24201c;
+  --brand-on-primary: #161412;
+
+  --background: var(--brand-base);
+  --foreground: var(--brand-text);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-primary-dark: var(--brand-primary-dark);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-ink-muted: var(--brand-ink-muted);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-text: var(--brand-text);
+  --color-brand-text-muted: var(--brand-text-muted);
+  --color-brand-base: var(--brand-base);
+  --color-brand-warm: var(--brand-warm);
+  --color-brand-peach: var(--brand-peach);
+  --color-brand-blush-light: var(--brand-blush-light);
+  --color-brand-rose-mist: var(--brand-rose-mist);
+  --color-brand-mist: var(--brand-mist);
+  --color-brand-terracotta: var(--brand-terracotta);
+  --color-brand-card: var(--brand-card);
+  --color-brand-elevated: var(--brand-elevated);
+  --color-brand-on-primary: var(--brand-on-primary);
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-cormorant);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-serif {
+  font-family: var(--font-cormorant), Georgia, serif;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes admin-drawer-in {
+  from {
+    opacity: 0.85;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.admin-drawer-panel {
+  animation: admin-drawer-in 220ms ease-out both;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.7s ease-out both;
+}
+
+.animate-fade-up-delay {
+  animation: fade-up 0.7s ease-out 0.15s both;
+}
+
+.animate-fade-up-delay-2 {
+  animation: fade-up 0.7s ease-out 0.3s both;
+}
+
+.hero-glow {
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(196, 165, 116, 0.16), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 10% 80%, rgba(22, 20, 18, 0.05), transparent 55%),
+    linear-gradient(165deg, var(--brand-warm) 0%, var(--brand-base) 45%, var(--brand-surface) 100%);
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-primary px-6 py-3 text-sm font-semibold text-brand-on-primary shadow-[0_12px_28px_-16px_rgba(107,86,56,0.45)] transition-all hover:bg-brand-primary-hover hover:shadow-[0_14px_32px_-14px_rgba(107,86,56,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary-dark;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-brand-ink/12 bg-brand-elevated/70 px-6 py-3 text-sm font-semibold text-brand-ink backdrop-blur-sm transition-colors hover:bg-brand-elevated hover:border-brand-ink/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-ink/30;
+}
+
+.input-field {
+  @apply w-full rounded-xl border border-brand-ink/10 bg-brand-elevated px-4 py-3 text-sm text-brand-text placeholder:text-brand-text-muted focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/25;
+}
+
+.label-field {
+  @apply mb-1.5 block text-sm font-medium text-brand-text;
+}
+
+.admin-sidebar-link {
+  @apply flex items-center gap-2.5 rounded-xl px-2.5 py-[0.55rem] text-[13px] font-medium text-white/50 transition-all duration-200;
+}
+
+.admin-sidebar-link:hover {
+  @apply bg-white/[0.06] text-white;
+}
+
+.admin-sidebar-link-active {
+  @apply bg-gradient-to-r from-brand-primary to-[#d4b88a] font-semibold text-brand-on-primary shadow-[0_10px_28px_-16px_rgba(196,165,116,0.85)];
+}
+
+.admin-sidebar-link-active:hover {
+  @apply from-brand-primary to-[#d4b88a] text-brand-on-primary;
+}
+
+.admin-rail-link {
+  @apply mx-auto flex h-10 w-10 items-center justify-center rounded-2xl text-white/55 transition-all duration-200;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.admin-rail-link:hover {
+  @apply bg-white/12 text-white;
+}
+
+.admin-rail-link-active {
+  @apply bg-gradient-to-br from-brand-primary to-[#d4b88a] text-brand-on-primary shadow-[0_8px_22px_-12px_rgba(196,165,116,0.8)];
+}
+
+.admin-rail-link-active:hover {
+  @apply from-brand-primary to-[#d4b88a] text-brand-on-primary;
+}
+
+.admin-app {
+  background:
+    radial-gradient(ellipse 55% 42% at 92% -8%, rgba(196, 165, 116, 0.14), transparent 58%),
+    radial-gradient(ellipse 40% 35% at -5% 105%, rgba(232, 213, 200, 0.35), transparent 55%),
+    linear-gradient(168deg, #f3efe9 0%, #f7f4f0 38%, #faf8f5 100%);
+}
+
+[data-theme="dark"] .admin-app {
+  background:
+    radial-gradient(ellipse 55% 42% at 92% -8%, rgba(196, 165, 116, 0.1), transparent 58%),
+    radial-gradient(ellipse 40% 35% at -5% 105%, rgba(196, 165, 116, 0.05), transparent 55%),
+    linear-gradient(168deg, #0f0e0c 0%, #141210 40%, #181512 100%);
+}
+
+.admin-sidebar {
+  background:
+    radial-gradient(ellipse 100% 40% at 20% -10%, rgba(196, 165, 116, 0.14), transparent 50%),
+    linear-gradient(188deg, #201c18 0%, #161310 48%, #110f0d 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+.admin-header {
+  background: rgba(250, 248, 245, 0.72);
+  border-bottom: 1px solid rgba(22, 20, 18, 0.06);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+[data-theme="dark"] .admin-header {
+  background: rgba(18, 16, 14, 0.78);
+  border-bottom: 1px solid rgba(243, 239, 233, 0.08);
+}
+
+.admin-header-action {
+  @apply inline-flex items-center gap-1.5 rounded-2xl border border-brand-ink/[0.07] bg-brand-elevated/75 px-3 py-2 text-xs font-semibold text-brand-ink shadow-[0_1px_0_rgba(255,255,255,0.8)_inset] transition hover:border-brand-ink/12 hover:bg-brand-elevated hover:shadow-sm;
+}
+
+.admin-header-icon {
+  @apply h-9 w-9 items-center justify-center gap-0 px-0;
+}
+
+[data-theme="dark"] .admin-header-action {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.admin-card {
+  @apply rounded-[1.35rem] border border-brand-ink/[0.055] p-5 backdrop-blur-sm;
+  background: var(--brand-card);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 18px 50px -36px rgba(22, 20, 18, 0.4);
+}
+
+[data-theme="dark"] .admin-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 50px -36px rgba(0, 0, 0, 0.65);
+}
+
+.admin-stat-card {
+  @apply relative overflow-hidden rounded-[1.35rem] border border-brand-ink/[0.055] p-5 backdrop-blur-sm transition-all duration-300;
+  background: var(--brand-card);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 18px 50px -36px rgba(22, 20, 18, 0.4);
+}
+
+[data-theme="dark"] .admin-stat-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 50px -36px rgba(0, 0, 0, 0.65);
+}
+
+.admin-stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #c4a574, #e8d5c8);
+  opacity: 0.85;
+}
+
+.admin-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(196, 165, 116, 0.28);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 22px 48px -30px rgba(22, 20, 18, 0.35);
+}
+
+[data-theme="dark"] .admin-stat-card:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 22px 48px -30px rgba(0, 0, 0, 0.7);
+}
+
+.admin-main .input-field {
+  @apply rounded-2xl border-brand-ink/10 bg-brand-surface py-3.5 shadow-none transition;
+}
+
+.admin-main .input-field:focus {
+  @apply border-brand-primary bg-brand-elevated ring-4 ring-brand-primary/20;
+}
+
+.btn-danger-ghost {
+  @apply rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50;
+}
+
+[data-theme="dark"] .btn-danger-ghost {
+  @apply text-red-400 hover:bg-red-500/10;
+}
+
+.btn-soft {
+  @apply inline-flex items-center justify-center rounded-full bg-brand-warm px-3 py-1.5 text-xs font-semibold text-brand-ink transition hover:bg-brand-primary/35;
+}
+
+@media print {
+  @page {
+    margin: 8mm;
+    size: auto;
+  }
+
+  html,
+  body {
+    background: white !important;
+    color: #1d1f24 !important;
+  }
+
+  .no-print,
+  .admin-sidebar,
+  .admin-app > div:first-child,
+  .admin-app header,
+  .admin-app [data-account-banner] {
+    display: none !important;
+  }
+
+  .admin-app {
+    display: block !important;
+    background: white !important;
+    min-height: 0 !important;
+  }
+
+  .admin-main {
+    padding: 0 !important;
+  }
+
+  .admin-main > div {
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .ticket-print {
+    display: block !important;
+    width: 80mm;
+    max-width: 100%;
+    margin: 0 auto;
+    color: #1d1f24 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

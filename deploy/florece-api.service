@@ -1,0 +1,21 @@
+[Unit]
+Description=Florece API (NestJS)
+After=network.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/florece/apps/api
+EnvironmentFile=/opt/florece/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/src/main.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=florece-api
+MemoryMax=450M
+
+[Install]
+WantedBy=multi-user.target

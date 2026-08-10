@@ -1,0 +1,22 @@
+{
+  "name": "florece",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npx --yes concurrently -k -n api,web -c yellow,cyan \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run start:dev -w @florece/api",
+    "dev:web": "npm run dev -w @florece/web",
+    "build": "npm run build -w @florece/shared && npm run build -w @florece/api && npm run build -w @florece/web",
+    "lint": "npm run lint -w @florece/api --if-present && npm run lint -w @florece/web --if-present",
+    "typecheck": "npm run build -w @florece/shared && npm run typecheck -w @florece/api --if-present && npm run typecheck -w @florece/web --if-present",
+    "test:api": "npm run test -w @florece/api",
+    "db:generate": "npm run prisma:generate -w @florece/api",
+    "db:seed": "npm run prisma:seed -w @florece/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
