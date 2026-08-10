@@ -58,9 +58,17 @@ export class EmployeesController {
       status?: boolean;
       phone?: string;
       email?: string;
+      base_salary?: number;
+      commission_rate?: number;
+      baseSalary?: number;
+      commissionRate?: number;
     },
   ) {
-    return this.employeesService.createEmployee(body);
+    return this.employeesService.createEmployee({
+      ...body,
+      baseSalary: body.base_salary ?? body.baseSalary,
+      commissionRate: body.commission_rate ?? body.commissionRate,
+    });
   }
 
   @Patch(':id')
@@ -76,9 +84,17 @@ export class EmployeesController {
       status: boolean;
       phone?: string;
       email?: string;
+      base_salary?: number;
+      commission_rate?: number;
+      baseSalary?: number;
+      commissionRate?: number;
     },
   ) {
-    return this.employeesService.updateEmployee(BigInt(id), body);
+    return this.employeesService.updateEmployee(BigInt(id), {
+      ...body,
+      baseSalary: body.base_salary ?? body.baseSalary,
+      commissionRate: body.commission_rate ?? body.commissionRate,
+    });
   }
 
   @Patch(':id/archive')

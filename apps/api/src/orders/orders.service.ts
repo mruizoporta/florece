@@ -18,6 +18,102 @@ export class OrdersService {
     return this.tenantContext.getTenant().id;
   }
 
+  async findOrOpenSheet(data: {
+    name: string;
+    customerId?: number;
+    employeeId?: number;
+  }) {
+    const tenantId = this.tenantId();
+    const name = data.name.trim();
+    if (!name) {
+      throw new BadRequestException('Client name is required');
+    }
+
+    const normalized = this.normalizeClientName(name);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const drafts = await this.prisma.order.findMany({
+      where: {
+        tenantId,
+        status: 'draft',
+        createdAt: { gte: startOfDay, lte: endOfDay },
+      },
+      include: {
+        items: {
+          include: {
+            employee: { select: { id: true, name: true } },
+          },
+        },
+        customer: { include: { user: { select: { name: true } } } },
+      },
+      orderBy: { id: 'desc' },
+      take: 80,
+    });
+
+    const customerId = data.customerId ? BigInt(data.customerId) : null;
+
+    const match = drafts.find((order) => {
+      if (customerId && order.customerId === customerId) return true;
+      const orderName = this.normalizeClientName(order.name ?? '');
+      if (orderName && orderName === normalized) return true;
+      const customerName = this.normalizeClientName(
+        order.customer?.user?.name ?? '',
+      );
+      if (customerId == null && customerName && customerName === normalized) {
+        return true;
+      }
+      return false;
+    });
+
+    if (match) {
+      return { order: match, created: false };
+    }
+
+    const order = await this.createOrder({
+      name,
+      customerId: data.customerId,
+      employeeId: data.employeeId,
+    });
+    return { order, created: true };
+  }
+
+  listOpenSheetsToday(limit = 40) {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return this.prisma.order.findMany({
+      where: {
+        tenantId: this.tenantId(),
+        status: 'draft',
+        createdAt: { gte: startOfDay, lte: endOfDay },
+      },
+      include: {
+        items: {
+          include: {
+            employee: { select: { id: true, name: true } },
+          },
+        },
+        customer: { include: { user: { select: { name: true } } } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  private normalizeClientName(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
   listOrders(search?: string, status?: string, limit = 50) {
     return this.prisma.order.findMany({
       where: {
@@ -42,7 +138,12 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId: this.tenantId() },
       include: {
-        items: { include: { item: true } },
+        items: {
+          include: {
+            item: true,
+            employee: { select: { id: true, name: true, image: true } },
+          },
+        },
         payments: true,
         customer: true,
         employee: true,
@@ -81,6 +182,7 @@ export class OrdersService {
       itemId?: number;
       productId?: number;
       quantity: number;
+      employeeId?: number;
     },
   ) {
     const order = await this.requireDraftOrder(orderId);
@@ -91,6 +193,7 @@ export class OrdersService {
     let productId = data.productId ? BigInt(data.productId) : null;
     let snapshotName = 'Item';
     let unitPrice = new Prisma.Decimal(0);
+    const isService = !productId && !!itemId;
 
     if (productId) {
       const product = await this.prisma.product.findFirst({
@@ -117,6 +220,19 @@ export class OrdersService {
       throw new BadRequestException('item_id or product_id required');
     }
 
+    let employeeId: bigint | null = null;
+    if (data.employeeId != null) {
+      employeeId = await this.requireTenantEmployee(BigInt(data.employeeId));
+    } else if (isService && order.employeeId) {
+      employeeId = order.employeeId;
+    }
+
+    if (isService && !employeeId) {
+      throw new BadRequestException(
+        'employee_id is required for service lines',
+      );
+    }
+
     const quantity = data.quantity || 1;
     const lineTotal = unitPrice.mul(quantity);
 
@@ -125,6 +241,7 @@ export class OrdersService {
         orderId: order.id,
         itemId,
         productId,
+        employeeId: isService ? employeeId : null,
         quantity,
         productNameSnapshot: snapshotName,
         unitPriceSnapshot: unitPrice,
@@ -142,7 +259,11 @@ export class OrdersService {
   async updateItem(
     orderId: bigint,
     lineId: bigint,
-    data: { quantity: number; line_discount?: number },
+    data: {
+      quantity?: number;
+      line_discount?: number;
+      employeeId?: number | null;
+    },
   ) {
     await this.requireDraftOrder(orderId);
     const line = await this.prisma.itemOrder.findFirst({
@@ -152,17 +273,35 @@ export class OrdersService {
       throw new NotFoundException('Line not found');
     }
 
-    const discount = new Prisma.Decimal(data.line_discount ?? 0);
-    const lineTotal = line.unitPriceSnapshot
-      .mul(data.quantity)
-      .minus(discount);
+    const isService = line.itemId != null && line.productId == null;
+    const quantity = data.quantity ?? line.quantity;
+    const discount = new Prisma.Decimal(
+      data.line_discount ?? line.lineDiscount.toNumber(),
+    );
+    const lineTotal = line.unitPriceSnapshot.mul(quantity).minus(discount);
+
+    let employeeId = line.employeeId;
+    if (data.employeeId !== undefined) {
+      if (data.employeeId == null) {
+        employeeId = null;
+      } else {
+        employeeId = await this.requireTenantEmployee(BigInt(data.employeeId));
+      }
+    }
+
+    if (isService && !employeeId) {
+      throw new BadRequestException(
+        'employee_id is required for service lines',
+      );
+    }
 
     await this.prisma.itemOrder.update({
       where: { id: lineId },
       data: {
-        quantity: data.quantity,
+        quantity,
         lineDiscount: discount,
         lineTotal,
+        employeeId: isService ? employeeId : null,
         updatedAt: new Date(),
       },
     });
@@ -228,16 +367,49 @@ export class OrdersService {
       throw new BadRequestException('Payments do not cover order total');
     }
 
-    return this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'finalized',
-        paymentStatus: true,
-        finalizedAt: new Date(),
-        updatedAt: new Date(),
-      },
-      include: { items: true, payments: true },
+    const lines = await this.prisma.itemOrder.findMany({
+      where: { orderId },
+      include: { employee: true },
     });
+
+    const missingStylist = lines.filter(
+      (line) =>
+        line.itemId != null &&
+        line.productId == null &&
+        line.employeeId == null,
+    );
+    if (missingStylist.length > 0) {
+      throw new BadRequestException(
+        'Every service line needs an employee before finalizing',
+      );
+    }
+
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      for (const line of lines) {
+        const isService = line.itemId != null && line.productId == null;
+        if (!isService || !line.employee) continue;
+        await tx.itemOrder.update({
+          where: { id: line.id },
+          data: {
+            commissionRateSnapshot: line.employee.commissionRate,
+            updatedAt: now,
+          },
+        });
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'finalized',
+          paymentStatus: true,
+          finalizedAt: now,
+          updatedAt: now,
+        },
+      });
+    });
+
+    return this.getOrder(orderId);
   }
 
   async cancel(orderId: bigint, reason?: string) {
@@ -378,6 +550,20 @@ export class OrdersService {
       throw new BadRequestException('Order is not in draft status');
     }
     return order;
+  }
+
+  private async requireTenantEmployee(employeeId: bigint) {
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        id: employeeId,
+        tenantId: this.tenantId(),
+        status: true,
+      },
+    });
+    if (!employee) {
+      throw new BadRequestException('Employee not found');
+    }
+    return employee.id;
   }
 
   private async requireOrder(orderId: bigint) {

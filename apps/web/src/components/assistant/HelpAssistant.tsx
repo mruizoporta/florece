@@ -45,20 +45,20 @@ function uid() {
 function welcomeText(context: AssistantContext, locale: HelpLocale): string {
   if (locale === "en") {
     if (context === "landing") {
-      return "Hi! I’m the Florece assistant. Ask about plans, trial, or payments — or pick a suggestion.";
+      return "Hi! I’m the Florece assistant. Ask about plans, trial, stylist floor, or payments — or pick a suggestion.";
     }
     if (context === "salon") {
       return "Hi! I can help with booking, services, hours, and contact. Pick a question or type one.";
     }
-    return "Hi! Ask me about appointments, POS, catalog, or billing.";
+    return "Hi! Ask me about appointments, POS, stylist floor, commissions, or billing.";
   }
   if (context === "landing") {
-    return "¡Hola! Soy el asistente de Florece. Preguntame por planes, prueba o pagos — o elegí una sugerencia.";
+    return "¡Hola! Soy el asistente de Florece. Preguntame por planes, prueba, piso del estilista o pagos — o elegí una sugerencia.";
   }
   if (context === "salon") {
     return "¡Hola! Te ayudo con citas, servicios, horarios y contacto. Elegí una pregunta o escribí la tuya.";
   }
-  return "¡Hola! Preguntame por citas, caja, catálogo o facturación.";
+  return "¡Hola! Preguntame por citas, caja, piso del estilista, comisiones o facturación.";
 }
 
 export function HelpAssistant({

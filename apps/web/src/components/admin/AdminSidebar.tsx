@@ -26,6 +26,7 @@ import {
   ChartColumn,
   CircleHelp,
   Wallet,
+  HandCoins,
 } from "lucide-react";
 import { logout, getMe, listBranches } from "@/lib/auth";
 import { useLocale } from "@/components/LocaleProvider";
@@ -76,6 +77,7 @@ const navGroups: NavGroup[] = [
     labelKey: "nav.group.negocio",
     items: [
       { href: "/employees", key: "admin.employees", icon: UserSquare2, access: "admin" },
+      { href: "/payroll", key: "admin.payroll", icon: HandCoins, access: "caja" },
       { href: "/catalog", key: "admin.catalog", icon: Package, access: "admin" },
       { href: "/customers", key: "admin.customers", icon: Users, access: "staff" },
       { href: "/users", key: "admin.users", icon: Users, access: "admin" },

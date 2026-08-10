@@ -12,7 +12,7 @@ import {
 } from "@florece/shared";
 import { api } from "@/lib/api";
 import { getMe } from "@/lib/auth";
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser, PublicEmployee } from "@/lib/types";
 import {
   AdminModal,
   AdminPageHeader,
@@ -24,15 +24,18 @@ import {
   RoleChip,
 } from "@/components/admin/AdminUi";
 import { useLocale } from "@/components/LocaleProvider";
+import { ModernSelect } from "@/components/ui/ModernSelect";
 
 const emptyForm = {
   name: "",
   email: "",
   password: "",
+  employeeId: "",
   roles: {
     Recepcionista: true,
     Cajero: false,
     Admin: false,
+    Estilista: false,
   } as Record<StaffRole, boolean>,
 };
 
@@ -43,6 +46,7 @@ function selectedRoles(flags: Record<StaffRole, boolean>): StaffRole[] {
 function roleLabel(role: StaffRole) {
   if (role === "Admin") return "Admin";
   if (role === "Recepcionista") return "Agenda";
+  if (role === "Estilista") return "Piso";
   return "Caja";
 }
 
@@ -50,6 +54,8 @@ function roleHint(role: StaffRole) {
   if (role === RoleName.Admin)
     return "Catálogo, usuarios, ajustes y facturación.";
   if (role === RoleName.Recepcionista) return "Citas, calendario y clientes.";
+  if (role === RoleName.Estilista)
+    return "Agenda propia y anotar servicios (móvil).";
   return "Órdenes y cobros (POS).";
 }
 
@@ -58,6 +64,7 @@ export default function AdminUsersPage() {
   const slug = params.slug as string;
   const { tr } = useLocale();
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [employees, setEmployees] = useState<PublicEmployee[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState<string | null>(null);
@@ -66,17 +73,25 @@ export default function AdminUsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
   const [editRoles, setEditRoles] = useState<Record<StaffRole, boolean>>(emptyForm.roles);
+  const [editEmployeeId, setEditEmployeeId] = useState("");
   const [resetUser, setResetUser] = useState<AdminUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [menuId, setMenuId] = useState<number | null>(null);
 
   async function load() {
     try {
-      const data = await api<AdminUser[]>("/v1/users", {
-        tenantSlug: slug,
-        auth: true,
-      });
+      const [data, emps] = await Promise.all([
+        api<AdminUser[]>("/v1/users", {
+          tenantSlug: slug,
+          auth: true,
+        }),
+        api<PublicEmployee[]>("/v1/employees", {
+          tenantSlug: slug,
+          auth: true,
+        }).catch(() => []),
+      ]);
       setUsers(data);
+      setEmployees(emps);
     } catch {
       setUsers([]);
     } finally {
@@ -108,6 +123,7 @@ export default function AdminUsersPage() {
           email: form.email,
           password: form.password,
           roles,
+          employee_id: form.employeeId ? Number(form.employeeId) : null,
         },
       });
       setForm(emptyForm);
@@ -125,7 +141,9 @@ export default function AdminUsersPage() {
       Admin: (user.roles ?? []).includes(RoleName.Admin),
       Recepcionista: (user.roles ?? []).includes(RoleName.Recepcionista),
       Cajero: (user.roles ?? []).includes(RoleName.Cajero),
+      Estilista: (user.roles ?? []).includes(RoleName.Estilista),
     });
+    setEditEmployeeId(user.employeeId ? String(user.employeeId) : "");
     setMenuId(null);
     setError(null);
   }
@@ -144,6 +162,14 @@ export default function AdminUsersPage() {
       tenantSlug: slug,
       auth: true,
       body: { roles },
+    });
+    await api(`/v1/users/${editUser.id}`, {
+      method: "PATCH",
+      tenantSlug: slug,
+      auth: true,
+      body: {
+        employee_id: editEmployeeId ? Number(editEmployeeId) : null,
+      },
     });
     setEditUser(null);
     setMessage("Permisos actualizados");
@@ -276,7 +302,7 @@ export default function AdminUsersPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         title="Nuevo usuario"
-        description="Combiná Agenda, Caja o Admin según lo que haga."
+        description="Agenda, caja, piso (estilista) o admin."
         footer={
           <button
             type="submit"
@@ -320,6 +346,21 @@ export default function AdminUsersPage() {
               minLength={8}
             />
           </div>
+          <div>
+            <label className="label-field">Profesional vinculado (piso)</label>
+            <ModernSelect
+              placeholder="Opcional — requerido para Estilista"
+              value={form.employeeId}
+              options={[
+                { value: "", label: "Sin vincular" },
+                ...employees.map((e) => ({
+                  value: String(e.id),
+                  label: e.name,
+                })),
+              ]}
+              onChange={(v) => setForm((f) => ({ ...f, employeeId: v }))}
+            />
+          </div>
           <div className="space-y-1.5 pt-1">
             <p className="text-[11px] font-semibold tracking-[0.08em] text-brand-text-muted uppercase">
               Permisos
@@ -360,18 +401,35 @@ export default function AdminUsersPage() {
           </button>
         }
       >
-        <form id="edit-roles-form" onSubmit={saveRoles} className="space-y-1.5">
-          {STAFF_ROLES.map((role) => (
-            <RoleChip
-              key={role}
-              active={editRoles[role]}
-              label={STAFF_ROLE_LABELS[role]}
-              description={roleHint(role)}
-              onClick={() =>
-                setEditRoles((r) => ({ ...r, [role]: !r[role] }))
-              }
+        <form id="edit-roles-form" onSubmit={saveRoles} className="space-y-3.5">
+          <div>
+            <label className="label-field">Profesional vinculado</label>
+            <ModernSelect
+              placeholder="Sin vincular"
+              value={editEmployeeId}
+              options={[
+                { value: "", label: "Sin vincular" },
+                ...employees.map((e) => ({
+                  value: String(e.id),
+                  label: e.name,
+                })),
+              ]}
+              onChange={setEditEmployeeId}
             />
-          ))}
+          </div>
+          <div className="space-y-1.5">
+            {STAFF_ROLES.map((role) => (
+              <RoleChip
+                key={role}
+                active={editRoles[role]}
+                label={STAFF_ROLE_LABELS[role]}
+                description={roleHint(role)}
+                onClick={() =>
+                  setEditRoles((r) => ({ ...r, [role]: !r[role] }))
+                }
+              />
+            ))}
+          </div>
           {error ? <MessageBanner message={error} type="error" /> : null}
         </form>
       </AdminModal>

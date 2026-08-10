@@ -68,7 +68,7 @@ export class AppointmentsService {
     services: { include: { service: { include: { item: true } } } },
   } as const;
 
-  async listByDate(date: string, statusIds?: number[]) {
+  async listByDate(date: string, statusIds?: number[], employeeId?: number) {
     const { start: dayStart, end: dayEnd } = salonDayBounds(date);
 
     return this.prisma.appointment.findMany({
@@ -78,6 +78,7 @@ export class AppointmentsService {
         ...(statusIds?.length
           ? { statusId: { in: statusIds.map((id) => BigInt(id)) } }
           : {}),
+        ...(employeeId != null ? { employeeId: BigInt(employeeId) } : {}),
       },
       include: this.appointmentInclude,
       orderBy: { startTime: 'asc' },

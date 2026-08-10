@@ -36,18 +36,40 @@ export class UsersController {
       email: string;
       password: string;
       roles?: string[];
+      employee_id?: number | null;
+      employeeId?: number | null;
     },
   ) {
-    return this.usersService.createUser(body);
+    return this.usersService.createUser({
+      name: body.name,
+      email: body.email,
+      password: body.password,
+      roles: body.roles,
+      employeeId: body.employee_id ?? body.employeeId,
+    });
   }
 
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body()
-    body: { name?: string; email?: string; image?: string },
+    body: {
+      name?: string;
+      email?: string;
+      image?: string;
+      employee_id?: number | null;
+      employeeId?: number | null;
+    },
   ) {
-    return this.usersService.updateUser(BigInt(id), body);
+    return this.usersService.updateUser(BigInt(id), {
+      name: body.name,
+      email: body.email,
+      image: body.image,
+      employeeId:
+        body.employee_id !== undefined
+          ? body.employee_id
+          : body.employeeId,
+    });
   }
 
   @Patch(':id/reset-password')

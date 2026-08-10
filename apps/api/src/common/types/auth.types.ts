@@ -7,6 +7,7 @@ export type AuthUser = {
   orgRole?: string | null;
   roles: string[];
   platformRole?: string | null;
+  employeeId?: bigint | null;
 };
 
 export type JwtPayload = {

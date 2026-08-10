@@ -108,6 +108,8 @@ if command -v psql >/dev/null 2>&1; then
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260731_refresh_tokens/migration.sql || true
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_organizations/migration.sql || true
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_accounting/migration.sql || true
+  sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_employee_pay/migration.sql || true
+  sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_stylist_link/migration.sql || true
 fi
 
 npm run prisma:seed -w @florece/api || echo "Seed warning (non-fatal)"

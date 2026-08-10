@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -12,15 +13,18 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   createAppointmentSchema,
+  RoleName,
   type CreateAppointmentInput,
 } from '@florece/shared';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequireFeature } from '../common/decorators/feature.decorator';
 import { FeatureGuard } from '../common/guards/feature.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AppointmentsService } from './appointments.service';
 import { salonTodayYmd } from '../common/date';
+import type { AuthUser } from '../common/types/auth.types';
 
 @ApiTags('appointments')
 @ApiBearerAuth()
@@ -68,17 +72,41 @@ export class AppointmentsController {
     return this.appointmentsService.search(q, limit ? Number(limit) : 50);
   }
 
-  @Roles('Admin', 'Recepcionista')
+  @Roles('Admin', 'Recepcionista', 'Estilista')
   @Get()
   index(
+    @CurrentUser() user: AuthUser,
     @Query('date') date?: string,
     @Query('status_ids') statusIds?: string,
+    @Query('employee_id') employeeId?: string,
   ) {
     const resolvedDate = date ?? salonTodayYmd();
     const ids = statusIds
       ? statusIds.split(',').map((value) => Number(value.trim()))
       : undefined;
-    return this.appointmentsService.listByDate(resolvedDate, ids);
+
+    const isStylistOnly =
+      user.roles.includes(RoleName.Estilista) &&
+      !user.roles.includes(RoleName.Admin) &&
+      !user.roles.includes(RoleName.Recepcionista);
+
+    let scopedEmployeeId: number | undefined;
+    if (isStylistOnly) {
+      if (user.employeeId == null) {
+        throw new ForbiddenException(
+          'Tu usuario no está vinculado a un profesional del equipo',
+        );
+      }
+      scopedEmployeeId = Number(user.employeeId);
+    } else if (employeeId) {
+      scopedEmployeeId = Number(employeeId);
+    }
+
+    return this.appointmentsService.listByDate(
+      resolvedDate,
+      ids,
+      scopedEmployeeId,
+    );
   }
 
   @Roles('Admin', 'Recepcionista')

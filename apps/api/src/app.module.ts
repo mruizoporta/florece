@@ -27,6 +27,7 @@ import { PlatformModule } from './platform/platform.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { AccountingModule } from './accounting/accounting.module';
+import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { AccountingModule } from './accounting/accounting.module';
     DashboardModule,
     PlatformModule,
     AccountingModule,
+    PayrollModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

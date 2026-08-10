@@ -26,7 +26,7 @@ export class CatalogController {
 
   @Get('services')
   @ApiBearerAuth()
-  @Roles('Admin')
+  @Roles('Admin', 'Cajero', 'Estilista', 'Recepcionista')
   listServices(
     @Query('search') search?: string,
     @Query('limit') limit?: string,

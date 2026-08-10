@@ -41,6 +41,8 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
   const [image, setImage] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [baseSalary, setBaseSalary] = useState("0");
+  const [commissionRate, setCommissionRate] = useState("0");
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
   const [schedule, setSchedule] = useState<ScheduleRow[]>(emptySchedule());
@@ -67,6 +69,8 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
         setImage(emp.image ?? "");
         setPhone(emp.personalInfo?.phone ?? emp.phone ?? "");
         setEmail(emp.personalInfo?.email ?? emp.email ?? "");
+        setBaseSalary(String(emp.baseSalary ?? 0));
+        setCommissionRate(String(emp.commissionRate ?? 0));
         if (sched.length > 0) {
           setSchedule(
             WEEKDAYS.map((d) => {
@@ -112,7 +116,16 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
     setMessage(null);
     try {
       let id = employeeId;
-      const body = { name, description, image, phone, email };
+      const body = {
+        name,
+        description,
+        image,
+        phone,
+        email,
+        status: true,
+        base_salary: Number(baseSalary) || 0,
+        commission_rate: Number(commissionRate) || 0,
+      };
       if (id) {
         await api(`/v1/employees/${id}`, {
           method: "PATCH",
@@ -261,6 +274,37 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
                   value={facebook}
                   onChange={(e) => setFacebook(e.target.value)}
                   placeholder="https://facebook.com/…"
+                />
+              </div>
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            title="Compensación"
+            description="Salario base mensual y comisión solo sobre servicios."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label-field">Salario base (C$/mes)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input-field !rounded-2xl"
+                  value={baseSalary}
+                  onChange={(e) => setBaseSalary(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label-field">Comisión servicios (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  className="input-field !rounded-2xl"
+                  value={commissionRate}
+                  onChange={(e) => setCommissionRate(e.target.value)}
                 />
               </div>
             </div>

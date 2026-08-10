@@ -18,13 +18,14 @@ import { OrdersService } from './orders.service';
 @ApiTags('orders')
 @ApiBearerAuth()
 @Controller('v1/orders')
-@Roles('Admin', 'Cajero')
+@Roles('Admin', 'Cajero', 'Estilista')
 @UseGuards(FeatureGuard)
 @RequireFeature('pos')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get('reports/summary')
+  @Roles('Admin', 'Cajero')
   reportSummary(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -33,6 +34,7 @@ export class OrdersController {
   }
 
   @Get('reports/payments')
+  @Roles('Admin', 'Cajero')
   reportPayments(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -41,6 +43,7 @@ export class OrdersController {
   }
 
   @Get('reports/products')
+  @Roles('Admin', 'Cajero')
   reportProducts(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -59,6 +62,31 @@ export class OrdersController {
       status,
       limit ? Number(limit) : 50,
     );
+  }
+
+  @Get('open-sheets')
+  openSheets(@Query('limit') limit?: string) {
+    return this.ordersService.listOpenSheetsToday(
+      limit ? Number(limit) : 40,
+    );
+  }
+
+  @Post('open-sheet')
+  openSheet(
+    @Body()
+    body: {
+      name: string;
+      customer_id?: number;
+      employee_id?: number;
+      customerId?: number;
+      employeeId?: number;
+    },
+  ) {
+    return this.ordersService.findOrOpenSheet({
+      name: body.name,
+      customerId: body.customer_id ?? body.customerId,
+      employeeId: body.employee_id ?? body.employeeId,
+    });
   }
 
   @Post()
@@ -90,12 +118,15 @@ export class OrdersController {
       item_id?: number;
       product_id?: number;
       quantity: number;
+      employee_id?: number;
+      employeeId?: number;
     },
   ) {
     return this.ordersService.addItem(BigInt(id), {
       itemId: body.item_id,
       productId: body.product_id,
       quantity: body.quantity,
+      employeeId: body.employee_id ?? body.employeeId,
     });
   }
 
@@ -103,13 +134,22 @@ export class OrdersController {
   updateItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
-    @Body() body: { quantity: number; line_discount?: number },
+    @Body()
+    body: {
+      quantity?: number;
+      line_discount?: number;
+      employee_id?: number | null;
+      employeeId?: number | null;
+    },
   ) {
-    return this.ordersService.updateItem(
-      BigInt(id),
-      BigInt(itemId),
-      body,
-    );
+    return this.ordersService.updateItem(BigInt(id), BigInt(itemId), {
+      quantity: body.quantity,
+      line_discount: body.line_discount,
+      employeeId:
+        body.employee_id !== undefined
+          ? body.employee_id
+          : body.employeeId,
+    });
   }
 
   @Delete(':id/items/:itemId')
@@ -118,6 +158,7 @@ export class OrdersController {
   }
 
   @Patch(':id/payments')
+  @Roles('Admin', 'Cajero')
   syncPayments(
     @Param('id') id: string,
     @Body()
@@ -134,11 +175,13 @@ export class OrdersController {
   }
 
   @Patch(':id/finalize')
+  @Roles('Admin', 'Cajero')
   finalize(@Param('id') id: string) {
     return this.ordersService.finalize(BigInt(id));
   }
 
   @Patch(':id/cancel')
+  @Roles('Admin', 'Cajero')
   cancel(
     @Param('id') id: string,
     @Body() body: { reason?: string },

@@ -71,12 +71,13 @@ export class UsersService {
     email: string;
     password: string;
     roles?: string[];
+    employeeId?: number | null;
   }) {
     await this.ensureStaffRolesExist();
     const roles = this.normalizeStaffRoles(data.roles);
     if (roles.length === 0) {
       throw new BadRequestException(
-        'Asigná al menos un permiso: Agenda, Caja o Administrador.',
+        'Asigná al menos un permiso: Agenda, Caja, Estilista o Administrador.',
       );
     }
 
@@ -88,6 +89,8 @@ export class UsersService {
       throw new ConflictException('Email already registered');
     }
 
+    const employeeId = await this.resolveEmployeeId(data.employeeId);
+
     const now = new Date();
     const user = await this.prisma.user.create({
       data: {
@@ -95,6 +98,7 @@ export class UsersService {
         email: data.email,
         password: await bcrypt.hash(data.password, 10),
         tenantId,
+        employeeId,
         createdAt: now,
         updatedAt: now,
       },
@@ -111,7 +115,12 @@ export class UsersService {
 
   async updateUser(
     userId: bigint,
-    data: { name?: string; email?: string; image?: string },
+    data: {
+      name?: string;
+      email?: string;
+      image?: string;
+      employeeId?: number | null;
+    },
   ) {
     await this.requireUser(userId);
     const tenantId = this.tenantId();
@@ -129,9 +138,22 @@ export class UsersService {
       }
     }
 
+    const { employeeId: rawEmployeeId, ...rest } = data;
+    const patch: {
+      name?: string;
+      email?: string;
+      image?: string;
+      employeeId?: bigint | null;
+      updatedAt: Date;
+    } = { ...rest, updatedAt: new Date() };
+
+    if (rawEmployeeId !== undefined) {
+      patch.employeeId = await this.resolveEmployeeId(rawEmployeeId, userId);
+    }
+
     await this.prisma.user.update({
       where: { id: userId },
-      data: { ...data, updatedAt: new Date() },
+      data: patch,
     });
 
     return this.getUser(userId);
@@ -155,11 +177,37 @@ export class UsersService {
     const roles = this.normalizeStaffRoles(roleNames);
     if (roles.length === 0) {
       throw new BadRequestException(
-        'Asigná al menos un permiso: Agenda, Caja o Administrador.',
+        'Asigná al menos un permiso: Agenda, Caja, Estilista o Administrador.',
       );
     }
     await this.syncRoles(userId, roles);
     return this.getUser(userId);
+  }
+
+  private async resolveEmployeeId(
+    employeeId?: number | null,
+    excludeUserId?: bigint,
+  ) {
+    if (employeeId == null) return null;
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: BigInt(employeeId), tenantId: this.tenantId() },
+    });
+    if (!employee) {
+      throw new BadRequestException('Employee not found');
+    }
+    const taken = await this.prisma.user.findFirst({
+      where: {
+        employeeId: employee.id,
+        tenantId: this.tenantId(),
+        ...(excludeUserId ? { NOT: { id: excludeUserId } } : {}),
+      },
+    });
+    if (taken) {
+      throw new BadRequestException(
+        'Ese profesional ya está vinculado a otro usuario',
+      );
+    }
+    return employee.id;
   }
 
   private normalizeStaffRoles(roleNames?: string[]): string[] {

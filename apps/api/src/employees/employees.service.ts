@@ -69,6 +69,8 @@ export class EmployeesService {
     image: string;
     status?: boolean;
     phone?: string;
+    baseSalary?: number;
+    commissionRate?: number;
   }) {
     const now = new Date();
     const tenantId = this.tenantId();
@@ -79,6 +81,8 @@ export class EmployeesService {
         description: data.description,
         image: data.image,
         status: data.status ?? true,
+        baseSalary: this.clampMoney(data.baseSalary ?? 0),
+        commissionRate: this.clampRate(data.commissionRate ?? 0),
         tenantId,
         createdAt: now,
         updatedAt: now,
@@ -124,6 +128,8 @@ export class EmployeesService {
       image: string;
       status: boolean;
       phone?: string;
+      baseSalary?: number;
+      commissionRate?: number;
     },
   ) {
     await this.requireEmployee(employeeId);
@@ -135,6 +141,12 @@ export class EmployeesService {
         description: data.description,
         image: data.image,
         status: data.status,
+        ...(data.baseSalary !== undefined
+          ? { baseSalary: this.clampMoney(data.baseSalary) }
+          : {}),
+        ...(data.commissionRate !== undefined
+          ? { commissionRate: this.clampRate(data.commissionRate) }
+          : {}),
         updatedAt: now,
       },
     });
@@ -238,6 +250,22 @@ export class EmployeesService {
     const parts = value.split(':').map(Number);
     const date = new Date(Date.UTC(1970, 0, 1, parts[0] ?? 0, parts[1] ?? 0, 0));
     return date;
+  }
+
+  private clampMoney(value: number) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new BadRequestException('base_salary must be a non-negative number');
+    }
+    return value;
+  }
+
+  private clampRate(value: number) {
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      throw new BadRequestException(
+        'commission_rate must be between 0 and 100',
+      );
+    }
+    return value;
   }
 
   private async requireEmployee(employeeId: bigint) {

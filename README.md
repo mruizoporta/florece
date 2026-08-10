@@ -25,20 +25,29 @@ npm run dev       # API :3001 + web :3000 (or use dev:api / dev:web)
 
 ### Credenciales demo
 
-| Rol | Código salón | Email | Password | Plan |
-|-----|--------------|-------|----------|------|
-| Admin salón | `demo` | `admin@demo.florece.app` | `demo1234` | **Premium** |
-| **Owner plataforma** | `ops` | `owner@florece.app` | `florece-owner-2026` | — |
+| Rol | Código salón | Email | Password | Entrar a |
+|-----|--------------|-------|----------|----------|
+| Admin salón | `demo` | `admin@demo.florece.app` | `demo1234` | `/s/demo/admin` (Premium) |
+| **Estilista (piso)** | `demo` | `maria@demo.florece.app` | `demo1234` | `/s/demo/stylist` |
+| Recepción | `demo` | `recepcion@demo.florece.app` | `demo1234` | `/s/demo/admin` |
+| Caja | `demo` | `caja@demo.florece.app` | `demo1234` | `/s/demo/admin` |
+| **Owner plataforma** | `ops` | `owner@florece.app` | `florece-owner-2026` | `/admin` |
+
+Login: `/login` (código del salón + email + password).
 
 El demo incluye **Patrocinadores** (Presencia → Patrocinadores) y multi-sucursal. Son marcas/aliados que se muestran en el sitio público.
+
+**Piso del estilista** (`/s/demo/stylist`): María López anota servicios, ve hojas abiertas y su comisión del día. Usuario vinculado al empleado del equipo.
 
 **Usuarios del salón (staff):** el dueño (Admin) crea usuarios con permisos:
 - **Agenda / recepción** — citas y calendario
 - **Caja / facturación** — órdenes POS
+- **Estilista** — piso / mis servicios y comisión
 - **Administrador** — todo (catálogo, usuarios, ajustes)
 - Se pueden combinar (ej. Agenda + Caja)
 
 - Panel salón: `/s/demo/admin`
+- Piso estilista: `/s/demo/stylist`
 - **Admin plataforma Florece:** `/admin` (login con salón `ops`)
 - Sitio público demo: `/s/demo`
 

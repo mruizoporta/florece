@@ -82,6 +82,16 @@ export const HELP_QUICK_START: {
     href: "/orders",
     articleId: "caja",
   },
+  {
+    id: "qs-payroll",
+    title: { es: "Comisiones del equipo", en: "Team commissions" },
+    description: {
+      es: "Salario base y % por servicios cobrados.",
+      en: "Base pay and % on billed services.",
+    },
+    href: "/payroll",
+    articleId: "comisiones",
+  },
 ];
 
 export const HELP_ARTICLES: HelpArticle[] = [
@@ -90,8 +100,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: "start",
     title: { es: "El panel de Florece", en: "The Florece panel" },
     summary: {
-      es: "Desde el panel administrás agenda, caja, equipo y la presencia pública de tu salón.",
-      en: "From the panel you manage schedule, POS, team, and your public presence.",
+      es: "Desde el panel administrás agenda, caja, equipo, comisiones y la presencia pública. El estilista tiene su propio piso móvil.",
+      en: "From the panel you manage schedule, POS, team, commissions, and public presence. Stylists have their own mobile floor.",
     },
     steps: [
       {
@@ -121,8 +131,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: "start",
     title: { es: "Roles y permisos", en: "Roles and permissions" },
     summary: {
-      es: "Administrador ve todo; recepción maneja agenda; cajero opera la caja.",
-      en: "Admin sees everything; reception manages the schedule; cashier runs the POS.",
+      es: "Admin ve todo; recepción maneja agenda; cajero opera la caja; estilista usa el piso para anotar servicios y ver su comisión.",
+      en: "Admin sees everything; reception manages the schedule; cashier runs the POS; stylists use the floor to log services and see commission.",
     },
     steps: [
       {
@@ -130,16 +140,37 @@ export const HELP_ARTICLES: HelpArticle[] = [
         en: "Go to Users and create accounts for your staff.",
       },
       {
-        es: "Asigná Admin, Recepcionista y/o Cajero según lo que necesiten.",
-        en: "Assign Admin, Receptionist, and/or Cashier as needed.",
+        es: "Asigná Admin, Recepcionista, Cajero y/o Estilista según lo que necesiten (se pueden combinar).",
+        en: "Assign Admin, Receptionist, Cashier, and/or Stylist as needed (roles can combine).",
       },
       {
-        es: "Cada persona entra con el mismo slug del salón y su email.",
-        en: "Each person signs in with the salon slug and their email.",
+        es: "Si es Estilista, vinculá el usuario al profesional del Equipo para que vea su agenda y comisión.",
+        en: "For Stylist, link the user to a Team professional so they see their schedule and commission.",
+      },
+      {
+        es: "Cada persona entra con el mismo slug del salón y su email. El estilista llega a /stylist (piso).",
+        en: "Each person signs in with the salon slug and their email. Stylists land on /stylist (floor).",
+      },
+    ],
+    tips: [
+      {
+        es: "Demo: maria@demo.florece.app / demo1234 (slug demo) abre el piso del estilista.",
+        en: "Demo: maria@demo.florece.app / demo1234 (slug demo) opens the stylist floor.",
       },
     ],
     href: "/users",
-    keywords: ["roles", "permisos", "usuarios", "admin", "cajero", "recepción"],
+    keywords: [
+      "roles",
+      "permisos",
+      "usuarios",
+      "admin",
+      "cajero",
+      "recepción",
+      "estilista",
+      "piso",
+      "stylist",
+      "floor",
+    ],
   },
   {
     id: "citas",
@@ -213,21 +244,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: "caja",
     title: { es: "Cobrar en caja", en: "Charge at the register" },
     summary: {
-      es: "Cada ticket se factura en la sucursal activa. No se cobra desde otra sucursal.",
-      en: "Each ticket is billed at the active branch. You don't charge from another branch.",
+      es: "Cada ticket se factura en la sucursal activa. Las hojas abiertas del día acumulan servicios hasta que caja cobra y finaliza.",
+      en: "Each ticket is billed at the active branch. Open sheets for the day collect services until POS charges and finalizes.",
     },
     steps: [
       {
-        es: "Abrí Caja y creá una orden (o partí de una cita concluida si aplica).",
-        en: "Open POS and create an order (or start from a completed appointment if applicable).",
+        es: "Abrí Caja y creá una orden (hoja), o partí de una cita si aplica.",
+        en: "Open POS and create an order (sheet), or start from an appointment if applicable.",
       },
       {
-        es: "Agregá servicios o productos al ticket.",
-        en: "Add services or products to the ticket.",
+        es: "Agregá servicios o productos. En cada servicio podés indicar qué profesional lo hizo (para comisión).",
+        en: "Add services or products. On each service you can set which professional did it (for commission).",
       },
       {
-        es: "Registrá el pago y finalizá la orden.",
-        en: "Record payment and finalize the order.",
+        es: "El estilista también puede anotar servicios desde el piso sobre la misma hoja abierta.",
+        en: "Stylists can also log services from the floor onto the same open sheet.",
+      },
+      {
+        es: "Registrá el pago y finalizá la orden. Ahí la comisión pasa a confirmada.",
+        en: "Record payment and finalize the order. That’s when commission becomes confirmed.",
       },
       {
         es: "Imprimí el ticket si la clienta lo necesita.",
@@ -236,20 +271,133 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
     tips: [
       {
+        es: "Una hoja abierta = una clienta del día. Si ya existe, sumá ahí — no crees otra con el mismo nombre.",
+        en: "One open sheet = one client for the day. If it exists, add there — don’t create another with the same name.",
+      },
+      {
         es: "Si tenés varias sucursales, el dueño ve el consolidado en Resumen sucursales; la caja sigue siendo local.",
         en: "With multiple branches, the owner sees the rollup in Branch sales; POS stays local.",
       },
     ],
     href: "/orders",
-    keywords: ["caja", "ticket", "pago", "pos", "facturar", "orden"],
+    keywords: [
+      "caja",
+      "ticket",
+      "pago",
+      "pos",
+      "facturar",
+      "orden",
+      "hoja",
+      "sheet",
+    ],
+  },
+  {
+    id: "piso",
+    category: "caja",
+    title: {
+      es: "Piso del estilista",
+      en: "Stylist floor",
+    },
+    summary: {
+      es: "En el móvil, el estilista busca una hoja abierta, anota el servicio que hizo y ve su comisión del día (Mi día).",
+      en: "On mobile, the stylist finds an open sheet, logs the service they did, and sees today’s commission (My day).",
+    },
+    steps: [
+      {
+        es: "Creá un usuario con rol Estilista y vinculalo al profesional en Equipo.",
+        en: "Create a user with the Stylist role and link them to a Team professional.",
+      },
+      {
+        es: "Al entrar, va a /stylist: agenda del día, hojas abiertas y Mi día.",
+        en: "On sign-in they go to /stylist: today’s schedule, open sheets, and My day.",
+      },
+      {
+        es: "Buscá la clienta en hojas abiertas (o abrí una nueva si no está) y elegí el servicio.",
+        en: "Find the client in open sheets (or open a new one if missing) and pick the service.",
+      },
+      {
+        es: "En Mi día ves lo anotado: comisión por cobrar (hoja abierta) y confirmada (ticket cobrado).",
+        en: "In My day you see what you logged: pending commission (open sheet) and confirmed (paid ticket).",
+      },
+    ],
+    tips: [
+      {
+        es: "No reemplaza a caja: el cobro y el cierre del ticket siguen en el panel de Caja.",
+        en: "It doesn’t replace POS: charging and closing the ticket stay in the POS panel.",
+      },
+      {
+        es: "Demo: maria@demo.florece.app / demo1234 → /s/demo/stylist.",
+        en: "Demo: maria@demo.florece.app / demo1234 → /s/demo/stylist.",
+      },
+    ],
+    href: "/users",
+    keywords: [
+      "piso",
+      "estilista",
+      "stylist",
+      "floor",
+      "anotar",
+      "hoja",
+      "mi día",
+      "my day",
+      "móvil",
+      "mobile",
+    ],
+  },
+  {
+    id: "comisiones",
+    category: "negocio",
+    title: {
+      es: "Comisiones y pago del equipo",
+      en: "Commissions and team pay",
+    },
+    summary: {
+      es: "Cada profesional puede tener salario base y un % de comisión sobre servicios (no sobre productos). El dueño lo ve en Comisiones.",
+      en: "Each professional can have a base salary and a commission % on services (not products). Owners review it under Commissions.",
+    },
+    steps: [
+      {
+        es: "En Equipo, editá al profesional: salario base mensual y % de comisión.",
+        en: "In Team, edit the professional: monthly base salary and commission %.",
+      },
+      {
+        es: "Al cobrar un servicio en caja, el ticket guarda quién lo hizo y el % vigente.",
+        en: "When a service is billed at POS, the ticket stores who did it and the rate at that time.",
+      },
+      {
+        es: "Abrí Comisiones, elegí el período y revisá ventas de servicios vs comisión.",
+        en: "Open Commissions, pick a period, and review service sales vs commission.",
+      },
+      {
+        es: "El estilista ve el día a día en Mi día del piso (pendiente + confirmada).",
+        en: "Stylists see day-to-day totals in My day on the floor (pending + confirmed).",
+      },
+    ],
+    tips: [
+      {
+        es: "La comisión “confirmada” cuenta tickets finalizados; lo de hojas abiertas es estimado hasta cobrar.",
+        en: "“Confirmed” commission counts finalized tickets; open-sheet amounts are estimates until paid.",
+      },
+    ],
+    href: "/payroll",
+    keywords: [
+      "comisión",
+      "comisiones",
+      "commission",
+      "payroll",
+      "salario",
+      "sueldo",
+      "pago",
+      "porcentaje",
+    ],
   },
   {
     id: "equipo",
     category: "negocio",
     title: { es: "Equipo y horarios", en: "Team and schedules" },
     summary: {
-      es: "Los profesionales y sus turnos definen quién aparece al agendar.",
-      en: "Professionals and their shifts define who appears when booking.",
+      es: "Los profesionales, horarios, salario base y comisión definen agenda y pago por servicios.",
+      en: "Professionals, schedules, base pay, and commission define booking and service pay.",
     },
     steps: [
       {
@@ -261,12 +409,28 @@ export const HELP_ARTICLES: HelpArticle[] = [
         en: "Set the weekly schedule (days and time ranges).",
       },
       {
+        es: "Opcional: salario base y % de comisión sobre servicios.",
+        en: "Optional: base salary and commission % on services.",
+      },
+      {
+        es: "Para el piso, vinculá el usuario Estilista a ese profesional en Usuarios.",
+        en: "For the floor, link the Stylist user to that professional in Users.",
+      },
+      {
         es: "Desactivá temporalmente a quien no esté disponible.",
         en: "Temporarily deactivate anyone who is unavailable.",
       },
     ],
     href: "/employees",
-    keywords: ["equipo", "empleados", "horario", "profesional", "staff"],
+    keywords: [
+      "equipo",
+      "empleados",
+      "horario",
+      "profesional",
+      "staff",
+      "comisión",
+      "salario",
+    ],
   },
   {
     id: "catalogo",

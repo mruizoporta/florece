@@ -76,7 +76,7 @@ async function bootstrapTenant(tenantId: bigint, tenantName: string) {
 
 async function ensureAdminRole(userId: bigint) {
   const now = new Date();
-  for (const name of ['Admin', 'Recepcionista', 'Cajero'] as const) {
+  for (const name of ['Admin', 'Recepcionista', 'Cajero', 'Estilista'] as const) {
     let role = await prisma.role.findFirst({
       where: { name, guardName: 'web' },
     });
@@ -385,10 +385,15 @@ async function ensureEmployee(
   now: Date,
   image = 'placeholder.webp',
   phone?: string,
+  pay?: { baseSalary: number; commissionRate: number },
 ) {
   let employee = await prisma.employee.findFirst({
     where: { tenantId, name },
   });
+  const payData = {
+    baseSalary: pay?.baseSalary ?? 0,
+    commissionRate: pay?.commissionRate ?? 0,
+  };
   if (!employee) {
     employee = await prisma.employee.create({
       data: {
@@ -396,6 +401,7 @@ async function ensureEmployee(
         description,
         image,
         status: true,
+        ...payData,
         tenantId,
         createdAt: now,
         updatedAt: now,
@@ -408,6 +414,7 @@ async function ensureEmployee(
         description,
         image,
         status: true,
+        ...payData,
         updatedAt: now,
       },
     });
@@ -589,8 +596,9 @@ async function ensureStaffUser(
   name: string,
   email: string,
   passwordHash: string,
-  roleNames: Array<'Admin' | 'Recepcionista' | 'Cajero'>,
+  roleNames: Array<'Admin' | 'Recepcionista' | 'Cajero' | 'Estilista'>,
   now: Date,
+  employeeId?: bigint | null,
 ) {
   let user = await prisma.user.findUnique({
     where: { tenantId_email: { tenantId, email } },
@@ -602,9 +610,15 @@ async function ensureStaffUser(
         email,
         password: passwordHash,
         tenantId,
+        employeeId: employeeId ?? null,
         createdAt: now,
         updatedAt: now,
       },
+    });
+  } else if (employeeId !== undefined) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { employeeId: employeeId ?? null, updatedAt: now },
     });
   }
 
@@ -661,6 +675,11 @@ async function ensureNamedCustomer(
         createdAt: now,
         updatedAt: now,
       },
+    });
+  } else if (user.name !== name) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { name, updatedAt: now },
     });
   }
   let customer = await prisma.customer.findFirst({
@@ -733,6 +752,7 @@ async function enrichDemoTenant(
     now,
     '/demo/employees/maria.jpg',
     '88881234',
+    { baseSalary: 8000, commissionRate: 40 },
   );
   const carlos = await ensureEmployee(
     tenantId,
@@ -741,6 +761,7 @@ async function enrichDemoTenant(
     now,
     '/demo/employees/carlos.jpg',
     '88884567',
+    { baseSalary: 7500, commissionRate: 40 },
   );
   const sofia = await ensureEmployee(
     tenantId,
@@ -749,6 +770,7 @@ async function enrichDemoTenant(
     now,
     '/demo/employees/sofia.jpg',
     '88887890',
+    { baseSalary: 7000, commissionRate: 35 },
   );
   await ensureEmployee(
     tenantId,
@@ -757,6 +779,7 @@ async function enrichDemoTenant(
     now,
     '/demo/employees/ana.jpg',
     '88880123',
+    { baseSalary: 6500, commissionRate: 35 },
   );
   await ensureEmployee(
     tenantId,
@@ -765,6 +788,7 @@ async function enrichDemoTenant(
     now,
     '/demo/employees/luis.jpg',
     '88883456',
+    { baseSalary: 6500, commissionRate: 40 },
   );
   await ensureEmployee(
     tenantId,
@@ -773,6 +797,7 @@ async function enrichDemoTenant(
     now,
     '/demo/employees/laura.jpg',
     '88886789',
+    { baseSalary: 7000, commissionRate: 35 },
   );
   await ensureEmployee(
     tenantId,
@@ -781,6 +806,7 @@ async function enrichDemoTenant(
     now,
     '/demo/employees/diego.jpg',
     '88889012',
+    { baseSalary: 6500, commissionRate: 40 },
   );
 
   // Archive legacy short-name duplicates (old seed left "María" / "Carlos")
@@ -915,6 +941,15 @@ async function enrichDemoTenant(
     ['Cajero'],
     now,
   );
+  await ensureStaffUser(
+    tenantId,
+    'María López',
+    'maria@demo.florece.app',
+    passwordHash,
+    ['Estilista'],
+    now,
+    maria.id,
+  );
 
   const c1 = await ensureNamedCustomer(
     tenantId,
@@ -932,7 +967,7 @@ async function enrichDemoTenant(
   );
   const c3 = await ensureNamedCustomer(
     tenantId,
-    'Camila Ortega',
+    'Elena Vargas',
     'camila@demo.florece.app',
     passwordHash,
     now,
@@ -1009,7 +1044,7 @@ async function enrichDemoTenant(
         employeeId: sofia.id,
         statusId: pending.id,
         typeId: webType.id,
-        name: 'Camila Ortega',
+        name: 'Elena Vargas',
         phone: '88883333',
         start: todayAt(14, 30),
         minutes: 60,
@@ -1066,6 +1101,180 @@ async function enrichDemoTenant(
           },
         });
       }
+    }
+  }
+
+  // Floor demo for María López: open sheets + services today (stylist UI / Mi día)
+  {
+    const { start: dayStart, end: dayEnd } = demoDayBounds();
+    const floorNames = [
+      'Valeria Gómez',
+      'Ana Ruiz',
+      'Lucía Mendoza',
+      'Cliente walk-in',
+    ];
+
+    const oldFloor = await prisma.order.findMany({
+      where: {
+        tenantId,
+        name: { in: floorNames },
+        OR: [
+          {
+            status: 'draft',
+            createdAt: { gte: dayStart, lte: dayEnd },
+          },
+          {
+            status: 'finalized',
+            name: 'Lucía Mendoza',
+            finalizedAt: { gte: dayStart, lte: dayEnd },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    if (oldFloor.length > 0) {
+      const ids = oldFloor.map((o) => o.id);
+      await prisma.itemOrder.deleteMany({ where: { orderId: { in: ids } } });
+      await prisma.orderPayment.deleteMany({ where: { orderId: { in: ids } } });
+      await prisma.order.deleteMany({ where: { id: { in: ids } } });
+    }
+
+    const corteItem =
+      corte?.itemId != null
+        ? await prisma.item.findFirst({ where: { id: corte.itemId, tenantId } })
+        : null;
+    const brushItem =
+      brush?.itemId != null
+        ? await prisma.item.findFirst({ where: { id: brush.itemId, tenantId } })
+        : null;
+    const balayageItem =
+      balayage?.itemId != null
+        ? await prisma.item.findFirst({
+            where: { id: balayage.itemId, tenantId },
+          })
+        : null;
+    const keratinaItem =
+      keratina?.itemId != null
+        ? await prisma.item.findFirst({
+            where: { id: keratina.itemId, tenantId },
+          })
+        : null;
+
+    const rate = new Prisma.Decimal(40);
+
+    async function addServiceLine(
+      orderId: bigint,
+      item: { id: bigint; name: string; price: Prisma.Decimal } | null,
+      createdAt: Date,
+      withSnapshot = false,
+    ) {
+      if (!item) return;
+      await prisma.itemOrder.create({
+        data: {
+          orderId,
+          itemId: item.id,
+          productId: null,
+          employeeId: maria.id,
+          quantity: 1,
+          price: item.price,
+          productNameSnapshot: item.name,
+          unitPriceSnapshot: item.price,
+          lineTotal: item.price,
+          commissionRateSnapshot: withSnapshot ? rate : null,
+          tenantId,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      });
+    }
+
+    // Open sheet: Valeria (cita en atención) — 1 servicio de María
+    const sheetValeria = await prisma.order.create({
+      data: {
+        customerId: c1.id,
+        employeeId: maria.id,
+        name: 'Valeria Gómez',
+        status: 'draft',
+        paymentStatus: false,
+        subtotal: corteItem?.price ?? new Prisma.Decimal(0),
+        total: corteItem?.price ?? new Prisma.Decimal(0),
+        tenantId,
+        createdAt: todayAt(10, 5),
+        updatedAt: todayAt(10, 20),
+      },
+    });
+    await addServiceLine(sheetValeria.id, corteItem, todayAt(10, 20));
+
+    // Open sheet: walk-in Ana — brushing
+    const sheetAna = await prisma.order.create({
+      data: {
+        customerId: c3.id,
+        employeeId: maria.id,
+        name: 'Ana Ruiz',
+        status: 'draft',
+        paymentStatus: false,
+        subtotal: brushItem?.price ?? new Prisma.Decimal(0),
+        total: brushItem?.price ?? new Prisma.Decimal(0),
+        tenantId,
+        createdAt: todayAt(11, 10),
+        updatedAt: todayAt(11, 40),
+      },
+    });
+    await addServiceLine(sheetAna.id, brushItem, todayAt(11, 40));
+
+    // Empty open sheet ready to annotate
+    await prisma.order.create({
+      data: {
+        employeeId: maria.id,
+        name: 'Cliente walk-in',
+        status: 'draft',
+        paymentStatus: false,
+        subtotal: new Prisma.Decimal(0),
+        total: new Prisma.Decimal(0),
+        tenantId,
+        createdAt: todayAt(12, 0),
+        updatedAt: todayAt(12, 0),
+      },
+    });
+
+    // Finalized ticket: Lucía — confirmed commission for Mi día
+    const luciaTotal = balayageItem?.price ?? new Prisma.Decimal(1800);
+    const sheetLucia = await prisma.order.create({
+      data: {
+        customerId: c2.id,
+        employeeId: maria.id,
+        name: 'Lucía Mendoza',
+        status: 'finalized',
+        paymentStatus: true,
+        subtotal: luciaTotal,
+        total: luciaTotal,
+        finalizedAt: todayAt(9, 45),
+        tenantId,
+        createdAt: todayAt(9, 0),
+        updatedAt: todayAt(9, 45),
+      },
+    });
+    await addServiceLine(sheetLucia.id, balayageItem, todayAt(9, 30), true);
+    await prisma.orderPayment.create({
+      data: {
+        tenantId,
+        orderId: sheetLucia.id,
+        method: 'card',
+        amount: luciaTotal,
+        paidAt: todayAt(9, 45),
+        createdAt: todayAt(9, 45),
+        updatedAt: todayAt(9, 45),
+      },
+    });
+
+    // Extra pending line on Valeria if keratina exists (multi-service sheet)
+    if (keratinaItem && corteItem) {
+      const extra = corteItem.price.plus(keratinaItem.price);
+      await addServiceLine(sheetValeria.id, keratinaItem, todayAt(10, 50));
+      await prisma.order.update({
+        where: { id: sheetValeria.id },
+        data: { subtotal: extra, total: extra, updatedAt: todayAt(10, 50) },
+      });
     }
   }
 

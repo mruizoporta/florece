@@ -3,7 +3,7 @@
 import { FormEvent, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { loginSchema, isSalonStaff } from "@florece/shared";
+import { loginSchema, isSalonStaff, salonStaffHomePath } from "@florece/shared";
 import { login, logout } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -40,13 +40,12 @@ function LoginForm() {
       }
       if (!isSalonStaff(result.user.roles)) {
         setError(
-          "Esta cuenta no tiene acceso al panel del salón. Pedile al dueño que te asigne Agenda, Caja o Administrador.",
+          "Esta cuenta no tiene acceso al panel del salón. Pedile al dueño que te asigne un rol.",
         );
         await logout();
         return;
       }
-      // Never send salon staff to /admin (platform) — that kicks them out.
-      const salonHome = `/s/${input.tenantSlug}/admin`;
+      const salonHome = salonStaffHomePath(input.tenantSlug, result.user.roles);
       const dest =
         redirectParam?.startsWith(`/s/${input.tenantSlug}/`)
           ? redirectParam
@@ -62,7 +61,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden">
+    <div className="relative flex min-h-[100svh] flex-col overflow-x-hidden">
       <div className="absolute inset-0 bg-[linear-gradient(155deg,#12100e_0%,#1a1714_45%,#2a241c_100%)]" />
       <div
         className="absolute inset-0 opacity-40"
@@ -77,21 +76,24 @@ function LoginForm() {
         <ThemeToggle className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/15" />
       </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col justify-center px-5 py-10 lg:flex-row lg:items-center lg:gap-16 lg:px-8">
-        <div className="mb-10 max-w-md text-white lg:mb-0 lg:flex-1">
-          <Link href="/" className="font-serif text-3xl font-semibold tracking-tight">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-5 py-16 sm:px-6 lg:flex-row lg:items-center lg:justify-center lg:gap-16 lg:px-8 lg:py-10">
+        <div className="mb-8 w-full max-w-md text-center text-white lg:mb-0 lg:flex-1 lg:text-left">
+          <Link
+            href="/"
+            className="font-serif text-3xl font-semibold tracking-tight"
+          >
             Florece
           </Link>
-          <p className="mt-6 font-serif text-3xl leading-tight font-medium md:text-4xl">
+          <p className="mt-5 font-serif text-3xl leading-tight font-medium md:text-4xl">
             {tr("login.panelTitle")}
           </p>
-          <p className="mt-3 text-sm leading-relaxed text-white/65 md:text-base">
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-white/65 md:text-base lg:mx-0">
             {tr("login.panelHint")}
           </p>
         </div>
 
-        <div className="w-full max-w-md lg:flex-1">
-          <div className="rounded-[1.5rem] border border-brand-ink/10 bg-brand-elevated p-7 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.55)] sm:p-8">
+        <div className="w-full max-w-md shrink-0 lg:flex-1">
+          <div className="rounded-[1.5rem] border border-brand-ink/10 bg-brand-elevated p-6 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.55)] sm:p-8">
             <h1 className="font-serif text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">
               {tr("login.title")}
             </h1>

@@ -6,15 +6,17 @@ export const RoleName = {
   Admin: 'Admin',
   Recepcionista: 'Recepcionista',
   Cajero: 'Cajero',
+  Estilista: 'Estilista',
   Customer: 'Customer',
 } as const;
 export type RoleName = (typeof RoleName)[keyof typeof RoleName];
 
-/** Roles de staff del salón (pueden entrar al panel). */
+/** Roles de staff del salón (pueden entrar al panel o piso). */
 export const STAFF_ROLES = [
   RoleName.Admin,
   RoleName.Recepcionista,
   RoleName.Cajero,
+  RoleName.Estilista,
 ] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
@@ -22,6 +24,7 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   Admin: 'Administrador (todo)',
   Recepcionista: 'Agenda / recepción',
   Cajero: 'Caja / facturación',
+  Estilista: 'Piso / mis servicios',
 };
 
 export function isSalonStaff(roles: string[] | null | undefined): boolean {
@@ -46,6 +49,30 @@ export function canManageCaja(roles: string[] | null | undefined): boolean {
 
 export function canManageSalon(roles: string[] | null | undefined): boolean {
   return Boolean(roles?.includes(RoleName.Admin));
+}
+
+/** Acceso al panel admin completo (no solo piso de estilista). */
+export function canAccessSalonAdmin(
+  roles: string[] | null | undefined,
+): boolean {
+  return (
+    canManageSalon(roles) || canManageAgenda(roles) || canManageCaja(roles)
+  );
+}
+
+export function isStylist(roles: string[] | null | undefined): boolean {
+  return Boolean(roles?.includes(RoleName.Estilista));
+}
+
+/** Home por defecto tras login de staff. */
+export function salonStaffHomePath(
+  slug: string,
+  roles: string[] | null | undefined,
+): string {
+  if (isStylist(roles) && !canAccessSalonAdmin(roles)) {
+    return `/s/${slug}/stylist`;
+  }
+  return `/s/${slug}/admin`;
 }
 
 export const PlatformRole = {
@@ -120,6 +147,7 @@ export type AuthUser = {
   orgRole?: string | null;
   roles: string[];
   platformRole?: string | null;
+  employeeId?: number | null;
 };
 
 export type TenantPublic = {

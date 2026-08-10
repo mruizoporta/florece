@@ -109,8 +109,35 @@ const LANDING_ENTRIES: AssistantEntry[] = [
       en: "Does it work for barbershops and spas?",
     },
     answer: {
-      es: "Sí. Está pensado para salones, barberías, spas y studios de belleza en Nicaragua: citas, catálogo, POS y presencia web.",
-      en: "Yes. Built for salons, barbershops, spas, and beauty studios in Nicaragua: appointments, catalog, POS, and web presence.",
+      es: "Sí. Está pensado para salones, barberías, spas y studios de belleza en Nicaragua: citas, catálogo, POS, piso del estilista con comisiones y presencia web.",
+      en: "Yes. Built for salons, barbershops, spas, and beauty studios in Nicaragua: appointments, catalog, POS, stylist floor with commissions, and web presence.",
+    },
+  },
+  {
+    id: "landing-stylist",
+    contexts: ["landing"],
+    keywords: [
+      "estilista",
+      "piso",
+      "stylist",
+      "floor",
+      "comisión",
+      "comision",
+      "commission",
+      "hoja",
+      "móvil",
+      "movil",
+      "app",
+      "anotar",
+      "maria",
+    ],
+    title: {
+      es: "¿Hay piso para estilistas?",
+      en: "Is there a stylist floor?",
+    },
+    answer: {
+      es: "Sí. Con el rol Estilista entran a un piso móvil: buscan la hoja de la clienta, anotan el servicio y ven Mi día (comisión pendiente y confirmada). Caja cierra el ticket al cobrar. En la demo: slug demo, maria@demo.florece.app / demo1234 → /s/demo/stylist.",
+      en: "Yes. With the Stylist role they get a mobile floor: find the client sheet, log the service, and see My day (pending and confirmed commission). POS closes the ticket when charging. Demo: slug demo, maria@demo.florece.app / demo1234 → /s/demo/stylist.",
     },
   },
   {
@@ -175,8 +202,8 @@ const LANDING_ENTRIES: AssistantEntry[] = [
       en: "What do the plans include?",
     },
     answer: {
-      es: "Básico: agenda, catálogo y clientes. Pro: + POS, contabilidad, sitio (secciones/imágenes) e Instagram. Premium: + patrocinadores, límites ilimitados y multi-sucursal.",
-      en: "Basic: schedule, catalog, and customers. Pro: + POS, accounting, site (sections/images), and Instagram. Premium: + sponsors, unlimited limits, and multi-branch.",
+      es: "Básico: agenda, catálogo y clientes. Pro: + POS, piso del estilista y comisiones, contabilidad, sitio (secciones/imágenes) e Instagram. Premium: + patrocinadores, límites ilimitados y multi-sucursal.",
+      en: "Basic: schedule, catalog, and customers. Pro: + POS, stylist floor and commissions, accounting, site (sections/images), and Instagram. Premium: + sponsors, unlimited limits, and multi-branch.",
     },
     adminHref: "/billing",
     helpTopic: "facturacion",
@@ -381,10 +408,15 @@ export function assistantSuggestions(
 ): { id: string; label: string }[] {
   const ids =
     context === "landing"
-      ? ["landing-plans", "landing-trial", "landing-pay", "landing-whatsapp"]
+      ? [
+          "landing-plans",
+          "landing-trial",
+          "landing-stylist",
+          "landing-pay",
+        ]
       : context === "salon"
         ? ["salon-book", "salon-services", "salon-hours", "salon-contact"]
-        : ["help-citas", "help-caja", "help-catalogo", "help-facturacion"];
+        : ["help-citas", "help-caja", "help-piso", "help-comisiones"];
 
   return ids
     .map((id) => ASSISTANT_KB.find((e) => e.id === id))

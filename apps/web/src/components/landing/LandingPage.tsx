@@ -37,7 +37,11 @@ const FAQ = [
   },
   {
     q: "¿Sirve para barberías y spas?",
-    a: "Sí. Está pensado para salones, barberías, spas y studios de belleza en Nicaragua: citas, catálogo, POS y presencia web.",
+    a: "Sí. Está pensado para salones, barberías, spas y studios de belleza en Nicaragua: citas, catálogo, POS, piso del estilista y presencia web.",
+  },
+  {
+    q: "¿Los estilistas pueden anotar lo que hacen?",
+    a: "Sí. Con el rol Estilista entran a un piso móvil: buscan la hoja de la clienta, anotan el servicio y ven su comisión del día. Caja cierra el ticket al cobrar.",
   },
   {
     q: "¿Puedo escribirles por WhatsApp?",
@@ -45,7 +49,7 @@ const FAQ = [
   },
   {
     q: "¿Hay multi-sucursal?",
-    a: "Hoy cada salón es un tenant. Si necesitás varias sucursales, hablamos por WhatsApp y lo resolvemos caso a caso.",
+    a: "Sí en plan Premium: cada sucursal tiene su caja; el dueño ve consolidado. Si necesitás armarlo, hablamos por WhatsApp.",
   },
 ];
 
@@ -53,17 +57,17 @@ const audience = [
   {
     icon: Scissors,
     title: "Dueños de salón",
-    text: "Agenda, equipo y cobro en un solo panel — sin Excel ni WhatsApp eterno.",
+    text: "Agenda, equipo, caja y comisiones en un solo panel — sin Excel ni WhatsApp eterno.",
   },
   {
     icon: Store,
     title: "Barberías",
-    text: "Turnos claros, servicios con precio y caja del día para no perder ventas.",
+    text: "Turnos claros, hojas de servicio y caja del día. El equipo anota en el piso y vos cobrás.",
   },
   {
     icon: Sparkles,
     title: "Spas y studios",
-    text: "Sitio propio, catálogo e Instagram — presencia que vende mientras atendés.",
+    text: "Sitio propio, catálogo e Instagram — presencia que vende mientras el piso sigue ordenado.",
   },
 ];
 
@@ -219,8 +223,8 @@ export function LandingPage() {
             transition={{ delay: 0.2 }}
             className="mt-4 max-w-lg text-lg text-white/75 md:text-xl"
           >
-            Citas, catálogo, caja y sitio web — cobrás por transferencia y
-            activamos tu período.
+            Citas, catálogo, caja, piso del estilista y sitio web — cobrás por
+            transferencia y activamos tu período.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -256,11 +260,12 @@ export function LandingPage() {
 
       <section id="funciones" className="mx-auto max-w-6xl px-6 py-20">
         <h2 className="font-serif text-4xl font-semibold tracking-tight md:text-5xl">
-          Agenda, cobro y presencia — en un solo lugar
+          Agenda, cobro, piso y presencia — en un solo lugar
         </h2>
         <p className="mt-4 max-w-2xl text-lg text-brand-text-muted">
-          Hecho para dueños de salón en Nicaragua: citas, equipo, caja y sitio
-          web, sin pelear con Excel ni con sistemas genéricos.
+          Hecho para dueños de salón en Nicaragua: citas, equipo, caja,
+          comisiones y sitio web, sin pelear con Excel ni con sistemas
+          genéricos.
         </p>
         <div className="mt-12 grid gap-8 md:grid-cols-3">
           {audience.map((item, i) => {

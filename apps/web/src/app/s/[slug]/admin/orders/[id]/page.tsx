@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Plus, Receipt, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Order } from "@/lib/types";
+import type { Order, OrderItem, PublicEmployee } from "@/lib/types";
 import {
   AdminIconButton,
   AdminPill,
@@ -45,11 +45,7 @@ function paymentLabel(method: string) {
   return method;
 }
 
-type OrderLine = NonNullable<Order["items"]>[number] & {
-  productNameSnapshot?: string;
-  unitPriceSnapshot?: number;
-  lineTotal?: number;
-};
+type OrderLine = OrderItem;
 
 function itemName(item: OrderLine) {
   return (
@@ -69,6 +65,10 @@ function lineTotal(item: OrderLine) {
   return lineUnitPrice(item) * item.quantity;
 }
 
+function isServiceLine(item: OrderLine) {
+  return item.productId == null && (item.itemId != null || !!item.item);
+}
+
 export default function AdminOrderDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -78,7 +78,9 @@ export default function AdminOrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [services, setServices] = useState<ServiceRow[]>([]);
+  const [employees, setEmployees] = useState<PublicEmployee[]>([]);
   const [catalogKey, setCatalogKey] = useState("");
+  const [lineEmployeeId, setLineEmployeeId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -87,7 +89,7 @@ export default function AdminOrderDetailPage() {
 
   const load = useCallback(async () => {
     try {
-      const [o, prods, svcs] = await Promise.all([
+      const [o, prods, svcs, emps] = await Promise.all([
         api<Order>(`/v1/orders/${id}`, { tenantSlug: slug, auth: true }),
         api<ProductRow[]>("/v1/catalog/products", {
           tenantSlug: slug,
@@ -97,10 +99,15 @@ export default function AdminOrderDetailPage() {
           tenantSlug: slug,
           auth: true,
         }).catch(() => []),
+        api<PublicEmployee[]>("/v1/employees", {
+          tenantSlug: slug,
+          auth: true,
+        }).catch(() => []),
       ]);
       setOrder(o);
       setProducts(prods);
       setServices(svcs);
+      setEmployees(emps);
     } catch {
       setOrder(null);
     }
@@ -117,6 +124,16 @@ export default function AdminOrderDetailPage() {
   );
   const remaining = Math.max(0, Number(total) - paid);
   const isEditable = order?.status === "draft" || order?.status === "open";
+  const addingService = catalogKey.startsWith("service:");
+
+  const stylistsOnTicket = useMemo(() => {
+    const names = new Set<string>();
+    for (const item of order?.items ?? []) {
+      if (item.employee?.name) names.add(item.employee.name);
+    }
+    if (order?.employee?.name) names.add(order.employee.name);
+    return [...names];
+  }, [order]);
 
   useEffect(() => {
     if (!order || !isEditable) return;
@@ -130,9 +147,18 @@ export default function AdminOrderDetailPage() {
     setMessage(null);
     try {
       const [kind, rawId] = catalogKey.split(":");
+      if (kind === "service" && !lineEmployeeId) {
+        setMessage("Elegí quién realizó el servicio.");
+        setBusy(false);
+        return;
+      }
       const body =
         kind === "service"
-          ? { item_id: Number(rawId), quantity: Number(quantity) || 1 }
+          ? {
+              item_id: Number(rawId),
+              quantity: Number(quantity) || 1,
+              employee_id: Number(lineEmployeeId),
+            }
           : { product_id: Number(rawId), quantity: Number(quantity) || 1 };
       await api(`/v1/orders/${id}/items`, {
         method: "POST",
@@ -141,7 +167,26 @@ export default function AdminOrderDetailPage() {
         body,
       });
       setCatalogKey("");
+      setLineEmployeeId("");
       setQuantity("1");
+      await load();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setLineEmployee(lineId: number, employeeId: string) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api(`/v1/orders/${id}/items/${lineId}`, {
+        method: "PATCH",
+        tenantSlug: slug,
+        auth: true,
+        body: { employee_id: Number(employeeId) },
+      });
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Error");
@@ -198,6 +243,15 @@ export default function AdminOrderDetailPage() {
   }
 
   async function finalize() {
+    const missing = (order?.items ?? []).filter(
+      (item) => isServiceLine(item) && !item.employeeId && !item.employee?.id,
+    );
+    if (missing.length > 0) {
+      setMessage(
+        "Asigná un profesional a cada servicio antes de cobrar.",
+      );
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -238,6 +292,10 @@ export default function AdminOrderDetailPage() {
 
   const items = order.items ?? [];
   const payments = order.payments ?? [];
+  const employeeOptions = employees.map((e) => ({
+    value: String(e.id),
+    label: e.name,
+  }));
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -278,7 +336,7 @@ export default function AdminOrderDetailPage() {
           title="Ítems"
           description={
             isEditable
-              ? "Agregá productos o servicios al ticket."
+              ? "En cada servicio indicá quién lo realizó (puede haber varios en el mismo ticket)."
               : "Este ticket ya no se puede editar."
           }
         >
@@ -298,36 +356,63 @@ export default function AdminOrderDetailPage() {
             </div>
           ) : (
             <ul className="divide-y divide-brand-ink/6 overflow-hidden rounded-2xl border border-brand-ink/8">
-              {items.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-center gap-3 bg-brand-elevated px-4 py-3.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-brand-ink">
-                      {itemName(item)}
+              {items.map((item) => {
+                const service = isServiceLine(item);
+                return (
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-center gap-3 bg-brand-elevated px-4 py-3.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-brand-ink">
+                        {itemName(item)}
+                      </p>
+                      <p className="text-xs text-brand-text-muted">
+                        {formatMoney(lineUnitPrice(item))} × {item.quantity}
+                        {!service ? " · Producto" : ""}
+                      </p>
+                      {service ? (
+                        isEditable ? (
+                          <div className="mt-2 max-w-xs">
+                            <ModernSelect
+                              placeholder="Quién lo hizo"
+                              value={
+                                item.employeeId
+                                  ? String(item.employeeId)
+                                  : item.employee?.id
+                                    ? String(item.employee.id)
+                                    : ""
+                              }
+                              options={employeeOptions}
+                              onChange={(v) => setLineEmployee(item.id, v)}
+                              required
+                            />
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-xs font-medium text-brand-ink">
+                            {item.employee?.name ?? "Sin profesional"}
+                          </p>
+                        )
+                      ) : null}
+                    </div>
+                    <p className="shrink-0 tabular-nums font-semibold text-brand-ink">
+                      {formatMoney(lineTotal(item))}
                     </p>
-                    <p className="text-xs text-brand-text-muted">
-                      {formatMoney(lineUnitPrice(item))} × {item.quantity}
-                    </p>
-                  </div>
-                  <p className="shrink-0 tabular-nums font-semibold text-brand-ink">
-                    {formatMoney(lineTotal(item))}
-                  </p>
-                  {isEditable ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => removeItem(item.id)}
-                      aria-label="Quitar ítem"
-                      title="Quitar ítem"
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-text-muted transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                    >
-                      <Trash2 size={16} strokeWidth={2} />
-                    </button>
-                  ) : null}
-                </li>
-              ))}
+                    {isEditable ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => removeItem(item.id)}
+                        aria-label="Quitar ítem"
+                        title="Quitar ítem"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-text-muted transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        <Trash2 size={16} strokeWidth={2} />
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -355,10 +440,25 @@ export default function AdminOrderDetailPage() {
                       description: `Producto · ${formatMoney(p.item.price)} · Stock ${p.stock}`,
                     })),
                   ]}
-                  onChange={setCatalogKey}
+                  onChange={(v) => {
+                    setCatalogKey(v);
+                    if (!v.startsWith("service:")) setLineEmployeeId("");
+                  }}
                   required
                 />
               </div>
+              {addingService ? (
+                <div className="min-w-[11rem] flex-1">
+                  <label className="label-field">Profesional</label>
+                  <ModernSelect
+                    placeholder="Quién lo hizo"
+                    value={lineEmployeeId}
+                    options={employeeOptions}
+                    onChange={setLineEmployeeId}
+                    required
+                  />
+                </div>
+              ) : null}
               <div className="w-24">
                 <label className="label-field">Cant.</label>
                 <input
@@ -371,7 +471,7 @@ export default function AdminOrderDetailPage() {
               </div>
               <button
                 type="submit"
-                disabled={busy || !catalogKey}
+                disabled={busy || !catalogKey || (addingService && !lineEmployeeId)}
                 className="btn-primary inline-flex items-center gap-2 py-2.5 text-sm disabled:opacity-50"
               >
                 <Plus size={16} strokeWidth={2.25} />
@@ -404,11 +504,11 @@ export default function AdminOrderDetailPage() {
               </div>
             </div>
 
-            {order.employee?.name ? (
+            {stylistsOnTicket.length > 0 ? (
               <div className="border-t border-brand-ink/6 px-5 py-3 text-sm text-brand-text-muted">
-                Atendió:{" "}
+                Atendieron:{" "}
                 <span className="font-medium text-brand-ink">
-                  {order.employee.name}
+                  {stylistsOnTicket.join(", ")}
                 </span>
               </div>
             ) : null}

@@ -147,8 +147,8 @@ export function HelpManual({ slug }: { slug: string }) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={
                   lang === "es"
-                    ? "Buscar: citas, caja, sucursales…"
-                    : "Search: appointments, POS, branches…"
+                    ? "Buscar: citas, caja, piso, comisiones…"
+                    : "Search: appointments, POS, floor, commissions…"
                 }
                 className="w-full rounded-2xl border border-brand-ink/10 bg-brand-elevated/90 py-3 pl-10 pr-16 text-sm text-brand-ink outline-none ring-brand-primary/30 transition focus:ring-2"
               />
@@ -278,8 +278,8 @@ export function HelpManual({ slug }: { slug: string }) {
               </p>
               <p className="mt-1 text-sm text-brand-text-muted">
                 {lang === "es"
-                  ? "Probá con “caja”, “citas” o “sucursales”."
-                  : "Try “POS”, “appointments”, or “branches”."}
+                  ? "Probá con “caja”, “piso”, “comisiones” o “citas”."
+                  : "Try “POS”, “floor”, “commissions”, or “appointments”."}
               </p>
             </div>
           ) : (

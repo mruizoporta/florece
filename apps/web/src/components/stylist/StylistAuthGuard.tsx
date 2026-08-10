@@ -3,13 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { getMe, isAuthenticated, logout } from "@/lib/auth";
-import {
-  canAccessSalonAdmin,
-  isSalonStaff,
-  salonStaffHomePath,
-} from "@florece/shared";
+import { isSalonStaff, isStylist, canAccessSalonAdmin } from "@florece/shared";
 
-export function AuthGuard({
+export function StylistAuthGuard({
   children,
   slug,
 }: {
@@ -22,17 +18,22 @@ export function AuthGuard({
   useEffect(() => {
     async function check() {
       if (!isAuthenticated()) {
-        router.replace(`/login?redirect=/s/${slug}/admin`);
+        router.replace(`/login?redirect=/s/${slug}/stylist`);
         return;
       }
       const me = await getMe();
       if (!me?.user || !isSalonStaff(me.user.roles)) {
         await logout();
-        router.replace(`/login?redirect=/s/${slug}/admin`);
+        router.replace(`/login?redirect=/s/${slug}/stylist`);
         return;
       }
-      if (!canAccessSalonAdmin(me.user.roles)) {
-        router.replace(salonStaffHomePath(slug, me.user.roles));
+      if (!isStylist(me.user.roles) && !canAccessSalonAdmin(me.user.roles)) {
+        await logout();
+        router.replace(`/login?redirect=/s/${slug}/stylist`);
+        return;
+      }
+      if (isStylist(me.user.roles) && !me.user.employeeId && !canAccessSalonAdmin(me.user.roles)) {
+        setReady(true);
         return;
       }
       setReady(true);
@@ -42,7 +43,7 @@ export function AuthGuard({
 
   if (!ready) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center bg-[#f7f3ea]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
       </div>
     );

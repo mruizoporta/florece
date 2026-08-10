@@ -54,6 +54,8 @@ export type PublicEmployee = {
   phone?: string | null;
   email?: string | null;
   status?: boolean;
+  baseSalary?: number;
+  commissionRate?: number;
   personalInfo?: { phone?: string; email?: string } | null;
   schedules?: ScheduleEntry[];
   socials?: { socialId: number; href: string; social?: { name: string } }[];
@@ -231,7 +233,15 @@ export type OrderItem = {
   id: number;
   quantity: number;
   unitPrice?: number;
+  unitPriceSnapshot?: number;
   lineDiscount?: number;
+  lineTotal?: number;
+  productId?: number | null;
+  itemId?: number | null;
+  productNameSnapshot?: string | null;
+  commissionRateSnapshot?: number | null;
+  employeeId?: number | null;
+  employee?: { id: number; name: string; image?: string | null } | null;
   item?: { id: number; name: string; price?: number };
   product?: { id: number; stock?: number; item?: { name: string; price?: number } };
 };
@@ -249,6 +259,7 @@ export type AdminUser = {
   name: string;
   email: string;
   roles?: string[];
+  employeeId?: number | null;
   createdAt?: string;
 };
 

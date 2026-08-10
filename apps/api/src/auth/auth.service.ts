@@ -515,6 +515,7 @@ export class AuthService {
       email: string;
       tenantId: bigint;
       platformRole?: string | null;
+      employeeId?: bigint | null;
     },
     roles: string[],
     organizationId?: bigint | null,
@@ -529,6 +530,7 @@ export class AuthService {
       orgRole: orgRole ?? null,
       roles,
       platformRole: user.platformRole ?? null,
+      employeeId: user.employeeId != null ? Number(user.employeeId) : null,
     };
   }
 
