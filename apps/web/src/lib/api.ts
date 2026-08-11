@@ -121,4 +121,55 @@ export async function api<T = unknown>(
   return data as T;
 }
 
+/** Multipart upload (do not set Content-Type — browser sets boundary). */
+export async function apiUpload<T = unknown>(
+  path: string,
+  form: FormData,
+  options: { tenantSlug?: string; auth?: boolean } = {},
+): Promise<T> {
+  const { tenantSlug, auth = true } = options;
+  const reqHeaders: Record<string, string> = {
+    Accept: "application/json",
+  };
+  const slug = tenantSlug ?? getStoredTenantSlug();
+  if (slug) reqHeaders["X-Tenant-Slug"] = slug;
+  if (auth) {
+    const token = getAccessToken();
+    if (token) reqHeaders["Authorization"] = `Bearer ${token}`;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers: reqHeaders,
+      body: form,
+      credentials: "include",
+    });
+  } catch {
+    throw new ApiError(`No se pudo conectar con la API (${API_URL}).`, 0);
+  }
+
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+  if (!res.ok) {
+    const message =
+      typeof data === "object" &&
+      data !== null &&
+      "message" in data &&
+      typeof (data as { message: unknown }).message === "string"
+        ? (data as { message: string }).message
+        : `Request failed (${res.status})`;
+    throw new ApiError(message, res.status, data);
+  }
+  return data as T;
+}
+
 export { API_URL };

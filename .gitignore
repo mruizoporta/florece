@@ -22,6 +22,10 @@ apps/web/.next/
 packages/shared/dist/
 coverage/
 
+# Uploaded images (local / accidental under repo)
+/storage/
+apps/api/storage/
+
 # Laravel legacy dumps / caches
 /storage/app/db-migrate/
 legacy/laravel/vendor/

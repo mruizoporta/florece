@@ -15,10 +15,20 @@ export function isPlaceholderAsset(filename?: string | null): boolean {
   return PLACEHOLDERS.has(filename);
 }
 
-/** Absolute URL, public path (`/demo/...`), or storage filename. */
+/**
+ * Public storage URL on the same origin (nginx `/storage` or Nest static).
+ * Avoid `/backend/storage` so browsers hit the persistent disk mount.
+ */
+function publicStorageBase(): string {
+  if (typeof window !== "undefined") return "/storage";
+  const app = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  return app ? `${app}/storage` : "/storage";
+}
+
+/** Absolute URL, public path (`/demo/...`, `/storage/...`), or legacy filename. */
 function resolveAsset(
   filename: string | null | undefined,
-  buildStorageUrl: (name: string) => string,
+  buildLegacyUrl: (name: string) => string,
 ): string | null {
   if (!filename || isPlaceholderAsset(filename)) return null;
   if (
@@ -28,31 +38,49 @@ function resolveAsset(
   ) {
     return filename;
   }
-  return buildStorageUrl(filename);
+  // New uploads are stored as `/storage/{slug}/{kind}/file` — if DB only has relative:
+  if (filename.includes("/")) {
+    return `${publicStorageBase()}/${filename.replace(/^\/+/, "")}`;
+  }
+  return buildLegacyUrl(filename);
 }
 
 export function bannerUrl(filename?: string | null): string | null {
   return resolveAsset(
     filename,
-    (name) => `${API_URL}/storage/banners/1920/${name}`,
+    (name) => `${publicStorageBase()}/banners/1920/${name}`,
   );
 }
 
 export function logoUrl(filename?: string | null): string | null {
-  return resolveAsset(filename, (name) => `${API_URL}/storage/logo/128/${name}`);
+  return resolveAsset(
+    filename,
+    (name) => `${publicStorageBase()}/logo/128/${name}`,
+  );
 }
 
 export function itemImageUrl(filename?: string | null): string | null {
-  return resolveAsset(filename, (name) => `${API_URL}/storage/items/512/${name}`);
+  return resolveAsset(
+    filename,
+    (name) => `${publicStorageBase()}/items/512/${name}`,
+  );
 }
 
 export function employeeImageUrl(filename?: string | null): string | null {
   return resolveAsset(
     filename,
-    (name) => `${API_URL}/storage/employees/300/${name}`,
+    (name) => `${publicStorageBase()}/employees/300/${name}`,
   );
 }
 
 export function imageUrl(folder: string, filename?: string | null): string | null {
-  return resolveAsset(filename, (name) => `${API_URL}/storage/${folder}/${name}`);
+  return resolveAsset(
+    filename,
+    (name) => `${publicStorageBase()}/${folder}/${name}`,
+  );
+}
+
+/** @deprecated Prefer public `/storage` paths; kept for rare API-relative needs */
+export function legacyApiStorageUrl(path: string): string {
+  return `${API_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }

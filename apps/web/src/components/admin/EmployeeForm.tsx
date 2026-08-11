@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { api } from "@/lib/api";
+import { ArrowLeft, Upload } from "lucide-react";
+import { api, apiUpload } from "@/lib/api";
 import type { PublicEmployee, ScheduleEntry } from "@/lib/types";
 import { WEEKDAYS } from "@/lib/format";
 import {
@@ -199,16 +199,44 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
             )}
           </div>
           <div>
-            <label className="label-field">Ruta o filename</label>
+            <label className="label-field">Foto</label>
+            <label className="btn-secondary mb-2 inline-flex w-full cursor-pointer items-center justify-center gap-2 !rounded-2xl py-2.5 text-sm">
+              <Upload size={16} />
+              Subir imagen
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  try {
+                    const form = new FormData();
+                    form.append("file", file);
+                    form.append("kind", "employees");
+                    const res = await apiUpload<{ path: string }>(
+                      "/v1/storage/upload",
+                      form,
+                      { tenantSlug: slug, auth: true },
+                    );
+                    setImage(res.path);
+                  } catch (err) {
+                    setMessage(
+                      err instanceof Error ? err.message : "Error al subir",
+                    );
+                  }
+                }}
+              />
+            </label>
             <input
-              className="input-field !rounded-2xl"
+              className="input-field !rounded-2xl font-mono text-xs"
               value={image}
               onChange={(e) => setImage(e.target.value)}
-              placeholder="/demo/employees/maria.jpg"
+              placeholder="/storage/… o /demo/employees/maria.jpg"
             />
           </div>
         </AdminSection>
-
         <div className="space-y-5">
           <AdminSection
             title="Perfil"

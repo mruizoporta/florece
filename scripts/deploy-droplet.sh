@@ -35,6 +35,8 @@ rsync -az --delete \
   --exclude 'apps/web/.env.local' \
   --exclude 'apps/web/.next' \
   --exclude 'apps/api/dist' \
+  --exclude 'apps/api/storage' \
+  --exclude 'storage' \
   --exclude 'packages/shared/dist' \
   --exclude 'legacy' \
   --exclude '.venv' \
@@ -73,6 +75,7 @@ NEXT_PUBLIC_MARKETING_INSTAGRAM_URL=https://www.instagram.com/florece.app
 NEXT_PUBLIC_MARKETING_FACEBOOK_URL=https://www.facebook.com/floreceapp
 SUPPORTFLOW_URL=http://127.0.0.1:4110/api
 SUPPORTFLOW_API_KEY=sf_live_5a100000000000000000000000000001
+STORAGE_ROOT=/var/lib/florece/storage
 ENVEOF
   chmod 600 "${REMOTE_DIR}/.env"
   echo "Created ${REMOTE_DIR}/.env"
@@ -88,6 +91,15 @@ else
 fi
 if ! grep -q '^SUPPORTFLOW_API_KEY=' "${REMOTE_DIR}/.env"; then
   echo 'SUPPORTFLOW_API_KEY=sf_live_5a100000000000000000000000000001' >> "${REMOTE_DIR}/.env"
+fi
+
+# Storage persistente de imágenes (fuera del rsync a /opt/florece)
+mkdir -p /var/lib/florece/storage
+chmod 755 /var/lib/florece /var/lib/florece/storage
+if grep -q '^STORAGE_ROOT=' "${REMOTE_DIR}/.env"; then
+  sed -i 's|^STORAGE_ROOT=.*|STORAGE_ROOT=/var/lib/florece/storage|' "${REMOTE_DIR}/.env"
+else
+  echo 'STORAGE_ROOT=/var/lib/florece/storage' >> "${REMOTE_DIR}/.env"
 fi
 EOF
 

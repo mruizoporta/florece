@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { ImageIcon, Pencil } from "lucide-react";
-import { api } from "@/lib/api";
+import { ImageIcon, Pencil, Upload } from "lucide-react";
+import { api, apiUpload } from "@/lib/api";
 import type { TenantSetting } from "@/lib/types";
 import {
   AdminModal,
@@ -26,6 +26,7 @@ type ImageSlot = {
   hint: string;
   aspect: string;
   span?: string;
+  kind: string;
   preview: (filename?: string | null) => string | null;
 };
 
@@ -35,6 +36,7 @@ const IMAGE_SLOTS: ImageSlot[] = [
     label: "Logo",
     hint: "Header y favicon",
     aspect: "aspect-square",
+    kind: "logo",
     preview: logoUrl,
   },
   {
@@ -43,6 +45,7 @@ const IMAGE_SLOTS: ImageSlot[] = [
     hint: "Imagen principal del home",
     aspect: "aspect-[21/9]",
     span: "sm:col-span-2",
+    kind: "banner",
     preview: bannerUrl,
   },
   {
@@ -50,6 +53,7 @@ const IMAGE_SLOTS: ImageSlot[] = [
     label: "Parallax",
     hint: "Fondo decorativo",
     aspect: "aspect-[16/10]",
+    kind: "parallax",
     preview: (f) => imageUrl("parallax", f),
   },
   {
@@ -57,6 +61,7 @@ const IMAGE_SLOTS: ImageSlot[] = [
     label: "Imagen izquierda",
     hint: "Bloque visual izquierdo",
     aspect: "aspect-[4/5]",
+    kind: "left",
     preview: (f) => imageUrl("left", f),
   },
   {
@@ -64,6 +69,7 @@ const IMAGE_SLOTS: ImageSlot[] = [
     label: "Imagen derecha",
     hint: "Bloque visual derecho",
     aspect: "aspect-[4/5]",
+    kind: "right",
     preview: (f) => imageUrl("right", f),
   },
 ];
@@ -76,6 +82,7 @@ export default function AdminSettingsImagesPage() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [activeKey, setActiveKey] = useState<keyof TenantSetting | null>(null);
   const [imgError, setImgError] = useState<Record<string, boolean>>({});
@@ -108,6 +115,27 @@ export default function AdminSettingsImagesPage() {
     setMessage(null);
   }
 
+  async function onPickFile(file: File | null) {
+    if (!file || !activeSlot) return;
+    setUploading(true);
+    setMessage(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", activeSlot.kind);
+      const res = await apiUpload<{ path: string }>("/v1/storage/upload", form, {
+        tenantSlug: slug,
+        auth: true,
+      });
+      setDraft(res.path);
+      setImgError((prev) => ({ ...prev, [String(activeSlot.key)]: false }));
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Error al subir");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function saveSlot() {
     if (!activeKey) return;
     setSaving(true);
@@ -120,14 +148,6 @@ export default function AdminSettingsImagesPage() {
         auth: true,
         body: { [activeKey]: filename || null },
       });
-      if (filename) {
-        await api("/v1/settings/upload", {
-          method: "POST",
-          tenantSlug: slug,
-          auth: true,
-          body: { field: String(activeKey), filename },
-        }).catch(() => undefined);
-      }
       setSetting((prev) => ({ ...prev, [activeKey]: filename }));
       setImgError((prev) => ({ ...prev, [String(activeKey)]: false }));
       setActiveKey(null);
@@ -145,14 +165,14 @@ export default function AdminSettingsImagesPage() {
     <div>
       <AdminPageHeader
         title={tr("admin.settingsImages")}
-        subtitle="Vista previa y edición de las imágenes del sitio público."
+        subtitle="Subí imágenes al servidor del salón. Quedan guardadas de forma persistente."
       />
 
       {message ? (
         <div className="mb-5">
           <MessageBanner
             message={message}
-            type={message.includes("Error") ? "error" : "success"}
+            type={message.toLowerCase().includes("error") ? "error" : "success"}
           />
         </div>
       ) : null}
@@ -209,11 +229,6 @@ export default function AdminSettingsImagesPage() {
                   <p className="mt-0.5 truncate text-xs text-brand-text-muted">
                     {slot.hint}
                   </p>
-                  {filename && !isPlaceholderAsset(filename) ? (
-                    <p className="mt-1 truncate font-mono text-[11px] text-brand-text-muted">
-                      {filename}
-                    </p>
-                  ) : null}
                 </div>
                 <AdminPill tone={ready ? "success" : "muted"}>
                   {ready ? "Activa" : "Vacía"}
@@ -241,7 +256,7 @@ export default function AdminSettingsImagesPage() {
             <button
               type="button"
               onClick={saveSlot}
-              disabled={saving}
+              disabled={saving || uploading}
               className="btn-primary flex-[1.4] !rounded-xl py-2.5 text-sm disabled:opacity-50"
             >
               {saving ? tr("admin.saving") : "Guardar"}
@@ -268,19 +283,34 @@ export default function AdminSettingsImagesPage() {
                 </div>
               )}
             </div>
-            <div>
-              <label className="label-field">Nombre de archivo</label>
+            <label className="btn-secondary inline-flex w-full cursor-pointer items-center justify-center gap-2 !rounded-xl py-2.5 text-sm">
+              <Upload size={16} />
+              {uploading ? "Subiendo…" : "Elegir archivo (JPG, PNG, WEBP)"}
               <input
-                className="input-field !rounded-xl"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  void onPickFile(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <p className="text-xs leading-relaxed text-brand-text-muted">
+              Se guarda en el servidor del Droplet. También podés pegar una ruta
+              pública (ej. <span className="font-mono">/demo/site/logo.jpg</span>
+              ).
+            </p>
+            <div>
+              <label className="label-field">Ruta guardada</label>
+              <input
+                className="input-field !rounded-xl font-mono text-xs"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="ej. logo-salon.png"
+                placeholder="/storage/… o /demo/…"
               />
-              <p className="mt-2 text-xs leading-relaxed text-brand-text-muted">
-                Podés usar una ruta pública (ej.{" "}
-                <span className="font-mono">/demo/site/logo.jpg</span>) o el
-                nombre exacto del archivo en el storage del salón.
-              </p>
             </div>
           </div>
         ) : null}

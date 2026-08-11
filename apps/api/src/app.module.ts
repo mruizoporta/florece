@@ -29,6 +29,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { AccountingModule } from './accounting/accounting.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { SupportModule } from './support/support.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { SupportModule } from './support/support.module';
     AccountingModule,
     PayrollModule,
     SupportModule,
+    StorageModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
