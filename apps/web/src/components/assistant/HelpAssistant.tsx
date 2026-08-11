@@ -243,13 +243,17 @@ export function HelpAssistant({
     : "right-5 bottom-5";
 
   const inputClass =
-    "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/35 focus:border-[#c4a574]/50";
+    "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-[#c4a574]/50";
+
+  /** Panel above FAB: height capped to viewport so buttons never clip. */
+  const panelClass =
+    "mb-3 flex h-[min(28rem,calc(100dvh-5.5rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-black/10 bg-[#161412] text-[#f3efe9] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)]";
 
   return (
     <div className={`fixed z-[60] ${position} ${className}`}>
       {open ? (
-        <div className="mb-3 flex h-[min(32rem,70vh)] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-black/10 bg-[#161412] text-[#f3efe9] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)]">
-          <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <div className={panelClass}>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div className="min-w-0">
               <p className="flex items-center gap-1.5 text-sm font-semibold">
                 <Sparkles size={14} className="text-[#c4a574]" />
@@ -279,71 +283,80 @@ export function HelpAssistant({
           {mode === "ticket" ? (
             <form
               onSubmit={submitTicket}
-              className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3"
+              className="flex min-h-0 flex-1 flex-col"
             >
-              <p className="text-[12px] leading-relaxed text-white/55">
-                {publicTicket
-                  ? tr("assistant.ticketHintPublic")
-                  : tr("assistant.ticketHintAuth")}
-              </p>
-              {publicTicket ? (
-                <>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
-                      {tr("assistant.ticketName")}
-                    </label>
-                    <input
-                      required
-                      value={ticketName}
-                      onChange={(e) => setTicketName(e.target.value)}
-                      className={inputClass}
-                      autoComplete="name"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
-                      {tr("assistant.ticketEmail")}
-                    </label>
-                    <input
-                      required
-                      type="email"
-                      value={ticketEmail}
-                      onChange={(e) => setTicketEmail(e.target.value)}
-                      className={inputClass}
-                      autoComplete="email"
-                    />
-                  </div>
-                </>
-              ) : null}
-              <div>
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
-                  {tr("assistant.ticketSubject")}
-                </label>
-                <input
-                  required
-                  minLength={3}
-                  value={ticketSubject}
-                  onChange={(e) => setTicketSubject(e.target.value)}
-                  className={inputClass}
-                />
+              <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
+                <p className="text-[12px] leading-relaxed text-white/55">
+                  {publicTicket
+                    ? tr("assistant.ticketHintPublic")
+                    : tr("assistant.ticketHintAuth")}
+                </p>
+                {publicTicket ? (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                        {tr("assistant.ticketName")}
+                      </label>
+                      <input
+                        required
+                        value={ticketName}
+                        onChange={(e) => setTicketName(e.target.value)}
+                        className={inputClass}
+                        autoComplete="name"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                        {tr("assistant.ticketEmail")}
+                      </label>
+                      <input
+                        required
+                        type="email"
+                        value={ticketEmail}
+                        onChange={(e) => setTicketEmail(e.target.value)}
+                        className={inputClass}
+                        autoComplete="email"
+                      />
+                    </div>
+                  </>
+                ) : null}
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                    {tr("assistant.ticketSubject")}
+                  </label>
+                  <input
+                    required
+                    minLength={3}
+                    value={ticketSubject}
+                    onChange={(e) => setTicketSubject(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                    {tr("assistant.ticketBody")}
+                  </label>
+                  <textarea
+                    required
+                    minLength={5}
+                    rows={3}
+                    value={ticketBody}
+                    onChange={(e) => setTicketBody(e.target.value)}
+                    className={`${inputClass} max-h-28 resize-y`}
+                  />
+                </div>
+                {ticketError ? (
+                  <p className="text-xs font-medium text-rose-300">
+                    {ticketError}
+                  </p>
+                ) : null}
+                {!supportReady ? (
+                  <p className="text-[11px] text-white/45">
+                    {tr("assistant.supportUnavailable")}
+                  </p>
+                ) : null}
               </div>
-              <div className="flex-1">
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">
-                  {tr("assistant.ticketBody")}
-                </label>
-                <textarea
-                  required
-                  minLength={5}
-                  rows={5}
-                  value={ticketBody}
-                  onChange={(e) => setTicketBody(e.target.value)}
-                  className={`${inputClass} min-h-[7rem] resize-none`}
-                />
-              </div>
-              {ticketError ? (
-                <p className="text-xs font-medium text-rose-300">{ticketError}</p>
-              ) : null}
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2 border-t border-white/10 bg-[#161412] px-3 py-3">
                 <button
                   type="button"
                   onClick={() => setMode("chat")}
@@ -361,17 +374,12 @@ export function HelpAssistant({
                     : tr("assistant.ticketSend")}
                 </button>
               </div>
-              {!supportReady ? (
-                <p className="text-[11px] text-white/45">
-                  {tr("assistant.supportUnavailable")}
-                </p>
-              ) : null}
             </form>
           ) : (
             <>
               <div
                 ref={listRef}
-                className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3"
               >
                 {messages.map((msg) => (
                   <div
