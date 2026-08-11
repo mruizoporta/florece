@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { logout, getMe, listBranches } from "@/lib/auth";
 import { useLocale } from "@/components/LocaleProvider";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 import type { I18nKey } from "@/lib/i18n";
 import {
   ADMIN_ROUTE_FEATURE,
@@ -271,14 +272,15 @@ export function AdminSidebar({
           title="Florece"
           className={`flex items-center ${collapsed ? "justify-center" : "gap-3 px-1"}`}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-primary to-[#b89468] font-serif text-lg font-bold text-brand-ink shadow-[0_10px_24px_-14px_rgba(196,165,116,0.9)]">
-            F
-          </span>
+          <FloreceLogo variant="badge" />
           {!collapsed ? (
             <span className="min-w-0">
-              <span className="block font-serif text-xl font-semibold tracking-tight leading-none">
-                Florece
-              </span>
+              <FloreceLogo
+                variant="word"
+                tone="onDark"
+                size="md"
+                className="block text-xl"
+              />
               <span className="mt-1 block text-[10px] font-medium tracking-[0.14em] text-white/35 uppercase">
                 Panel
               </span>

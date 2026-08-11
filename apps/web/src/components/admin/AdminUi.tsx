@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Archive, Eye, Pencil, Plus, Receipt, Search, Trash2, X } from "lucide-react";
+import { Archive, ArrowLeftRight, Eye, Pencil, Plus, Receipt, Search, Trash2, X } from "lucide-react";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 
 export function AdminPageHeader({
   title,
@@ -21,9 +22,12 @@ export function AdminPageHeader({
   return (
     <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <p className="mb-2 text-[11px] font-semibold tracking-[0.18em] text-brand-primary-dark/80 uppercase">
-          Florece
-        </p>
+        <div className="mb-2 flex items-center gap-1.5">
+          <FloreceLogo variant="mark" tone="gold" size="sm" />
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-brand-primary-dark/80 uppercase">
+            Florece
+          </p>
+        </div>
         <h1 className="font-serif text-[2.25rem] font-semibold tracking-tight text-brand-ink sm:text-[2.5rem]">
           {title}
         </h1>
@@ -418,7 +422,7 @@ export function AdminIconButton({
   href,
   target,
 }: {
-  action: "edit" | "delete" | "archive" | "view" | "ticket";
+  action: "edit" | "delete" | "archive" | "view" | "ticket" | "stock";
   label: string;
   onClick?: () => void;
   href?: string;
@@ -428,6 +432,7 @@ export function AdminIconButton({
     edit: `${iconActionBase} bg-brand-warm text-brand-ink hover:bg-brand-primary/40 focus-visible:outline-brand-primary`,
     view: `${iconActionBase} bg-brand-warm text-brand-ink hover:bg-brand-primary/40 focus-visible:outline-brand-primary`,
     ticket: `${iconActionBase} bg-brand-primary/35 text-brand-ink hover:bg-brand-primary/55 focus-visible:outline-brand-primary`,
+    stock: `${iconActionBase} bg-brand-primary/35 text-brand-ink hover:bg-brand-primary/55 focus-visible:outline-brand-primary`,
     archive: `${iconActionBase} bg-brand-ink/[0.04] text-brand-text-muted hover:bg-amber-50 hover:text-amber-800 focus-visible:outline-amber-500`,
     delete: `${iconActionBase} bg-brand-ink/[0.04] text-brand-text-muted hover:bg-red-50 hover:text-red-600 focus-visible:outline-red-500`,
   } as const;
@@ -436,6 +441,7 @@ export function AdminIconButton({
     edit: Pencil,
     view: Eye,
     ticket: Receipt,
+    stock: ArrowLeftRight,
     archive: Archive,
     delete: Trash2,
   } as const;

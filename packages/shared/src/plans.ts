@@ -1,4 +1,16 @@
-/** Referencia NIO/USD aproximada (Nicaragua). */
+/**
+ * Precios Florece (Nicaragua) — lanzamiento PYME 2026
+ *
+ * Estudio (docs/MARKET-PRICING-NI.md):
+ * - ReservaSimple: gratis / ~$14 (solo citas)
+ * - Nicteo reservas NI: ~$30/mes
+ * - Neox Peluquerías NI: ~C$ 1,471/mes (≈ $40) agenda+caja+comisiones
+ * - Fresha: ~$20 solo o ~$15/estilista + comisiones marketplace
+ *
+ * Florece = agenda + POS + inventario + piso estilista + sitio.
+ * Marca nueva, self-service, pago por transferencia: Pro bajo Neox.
+ * Tipo de cambio referencial ≈ 36.5 NIO/USD.
+ */
 export const NIO_PER_USD_REF = 36.5;
 
 export const FEATURE_KEYS = [
@@ -14,6 +26,7 @@ export const FEATURE_KEYS = [
   'billing',
   'accounting',
   'branches',
+  'service_consumables',
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -31,6 +44,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   billing: 'Facturación del plan',
   accounting: 'Contabilidad operativa',
   branches: 'Utilidad multi-sucursal',
+  service_consumables: 'Insumos por servicio (recetas)',
 };
 
 export const FEATURE_LABELS_EN: Record<FeatureKey, string> = {
@@ -46,6 +60,7 @@ export const FEATURE_LABELS_EN: Record<FeatureKey, string> = {
   billing: 'Plan billing',
   accounting: 'Operational accounting',
   branches: 'Multi-branch profit',
+  service_consumables: 'Service consumables (recipes)',
 };
 
 export type PlanFeatures = Record<FeatureKey, boolean>;
@@ -78,6 +93,7 @@ const ALL_OFF: PlanFeatures = {
   billing: false,
   accounting: false,
   branches: false,
+  service_consumables: false,
 };
 
 export const PLANS = {
@@ -90,17 +106,17 @@ export const PLANS = {
     maxServices: 20,
     trialDays: 14,
     features: [
-      'Agenda y citas',
+      'Para micro salón que empieza a ordenarse',
+      'Agenda, citas y calendario',
       'Catálogo y clientes',
-      'Datos del salón',
-      'Hasta 3 empleados / 20 servicios',
+      'Hasta 3 profesionales · 20 servicios',
       'Trial 14 días',
     ],
     featuresEn: [
-      'Schedule & appointments',
+      'For micro salons getting organized',
+      'Schedule, bookings & calendar',
       'Catalog & customers',
-      'Salon profile settings',
-      'Up to 3 employees / 20 services',
+      'Up to 3 pros / 20 services',
       '14-day trial',
     ],
     entitlements: {
@@ -115,28 +131,28 @@ export const PLANS = {
   pro: {
     slug: 'pro',
     name: 'Pro',
-    priceUsdMonthly: 39,
-    priceNioMonthly: 1399,
+    priceUsdMonthly: 35,
+    priceNioMonthly: 1299,
     maxEmployees: 10,
     maxServices: 80,
     trialDays: 14,
     features: [
-      'Todo Básico',
-      'Hasta 10 empleados / 80 servicios',
-      'Punto de venta',
+      'Recomendado — salón que opera todos los días',
+      'Todo Básico + hasta 10 profesionales',
+      'POS / caja y cortes',
+      'Inventario retail + insumos por servicio',
       'Piso del estilista + comisiones',
       'Contabilidad operativa',
-      'Sitio: secciones e imágenes',
-      'Instagram',
+      'Sitio web: secciones e imágenes + Instagram',
     ],
     featuresEn: [
-      'Everything in Basic',
-      'Up to 10 employees / 80 services',
-      'Point of sale',
+      'Recommended — salon that runs every day',
+      'Everything in Basic + up to 10 pros',
+      'POS / checkout',
+      'Retail inventory + service consumables',
       'Stylist floor + commissions',
       'Operational accounting',
-      'Site: sections & images',
-      'Instagram',
+      'Website: sections & images + Instagram',
     ],
     entitlements: {
       ...ALL_OFF,
@@ -150,27 +166,30 @@ export const PLANS = {
       sections: true,
       billing: true,
       accounting: true,
+      service_consumables: true,
     },
   },
   premium: {
     slug: 'premium',
     name: 'Premium',
-    priceUsdMonthly: 69,
-    priceNioMonthly: 2499,
+    priceUsdMonthly: 55,
+    priceNioMonthly: 1999,
     maxEmployees: null,
     maxServices: null,
     trialDays: 14,
     features: [
-      'Todo Pro',
-      'Patrocinadores',
-      'Empleados y servicios ilimitados',
+      'Varias sucursales o equipo grande',
+      'Todo Pro (POS, inventario e insumos)',
+      'Profesionales y servicios ilimitados',
       'Utilidad multi-sucursal',
+      'Patrocinadores',
     ],
     featuresEn: [
-      'Everything in Pro',
-      'Sponsors',
-      'Unlimited employees & services',
+      'Multi-branch or large teams',
+      'Everything in Pro (POS, inventory & consumables)',
+      'Unlimited pros & services',
       'Multi-branch profit rollups',
+      'Sponsors',
     ],
     entitlements: {
       appointments: true,
@@ -185,6 +204,7 @@ export const PLANS = {
       billing: true,
       accounting: true,
       branches: true,
+      service_consumables: true,
     },
   },
 } as const satisfies Record<string, PlanDefinition>;

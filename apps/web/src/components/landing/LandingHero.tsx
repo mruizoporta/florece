@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { DEMO_SLUG } from "@florece/shared";
 import { useLocale } from "@/components/LocaleProvider";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 
 export function LandingHero() {
   const { tr } = useLocale();
@@ -25,9 +26,7 @@ export function LandingHero() {
 
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-6 pb-16 pt-8">
         <header className="flex items-center justify-between">
-          <span className="font-serif text-2xl font-semibold tracking-tight text-brand-ink">
-            Florece
-          </span>
+          <FloreceLogo tone="ink" size="md" />
           <nav className="flex items-center gap-4 text-sm">
             <Link
               href="/login"

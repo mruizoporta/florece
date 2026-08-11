@@ -15,6 +15,9 @@ import {
 import { ModernSelect } from "@/components/ui/ModernSelect";
 import { formatDateTime } from "@/lib/format";
 import { employeeImageUrl } from "@/lib/images";
+import { AppointmentWhatsAppActions } from "@/components/admin/AppointmentWhatsAppActions";
+import { getMe } from "@/lib/auth";
+import { useLocale } from "@/components/LocaleProvider";
 
 type AppointmentServiceRow =
   | { id: number; name: string; durationTime?: number }
@@ -67,6 +70,7 @@ export default function AdminAppointmentDetailPage() {
   const router = useRouter();
   const slug = params.slug as string;
   const id = params.id as string;
+  const { locale } = useLocale();
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [statuses, setStatuses] = useState<AppointmentStatus[]>([]);
@@ -76,6 +80,13 @@ export default function AdminAppointmentDetailPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [statusId, setStatusId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
+  const [salonName, setSalonName] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMe()
+      .then((me) => setSalonName(me?.tenant?.name ?? null))
+      .catch(() => setSalonName(null));
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -303,6 +314,17 @@ export default function AdminAppointmentDetailPage() {
               </div>
             </div>
           </div>
+
+          {!isCancelled ? (
+            <div className="admin-card">
+              <AppointmentWhatsAppActions
+                appointment={appointment}
+                salonName={salonName}
+                locale={locale === "en" ? "en" : "es"}
+                variant="stack"
+              />
+            </div>
+          ) : null}
 
           {!isCancelled ? (
             <>

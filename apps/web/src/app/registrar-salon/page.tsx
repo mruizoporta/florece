@@ -8,6 +8,7 @@ import { registerSalon } from "@/lib/auth";
 import { ApiError, setAccessToken, setStoredTenantSlug } from "@/lib/api";
 import { ModernSelect } from "@/components/ui/ModernSelect";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 
 export default function RegisterSalonPage() {
   const router = useRouter();
@@ -52,11 +53,8 @@ export default function RegisterSalonPage() {
         <ThemeToggle />
       </div>
       <div className="w-full max-w-lg">
-        <Link
-          href="/"
-          className="mb-8 inline-block font-serif text-2xl font-semibold text-brand-ink"
-        >
-          Florece
+        <Link href="/" className="mb-8 inline-flex" aria-label="Florece">
+          <FloreceLogo tone="ink" size="lg" />
         </Link>
 
         <div className="rounded-2xl border border-brand-ink/8 bg-brand-elevated p-8 shadow-sm">

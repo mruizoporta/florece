@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Plus, Receipt, Trash2 } from "lucide-react";
+import { formatStockQty, type ProductUnit } from "@florece/shared";
 import { api } from "@/lib/api";
 import type { Order, OrderItem, PublicEmployee } from "@/lib/types";
 import {
@@ -18,11 +19,33 @@ import { ModernSelect } from "@/components/ui/ModernSelect";
 import { useLocale } from "@/components/LocaleProvider";
 import { formatDateTime } from "@/lib/format";
 
-type ProductRow = { id: number; stock: number; item: { name: string; price: number } };
+type ProductRow = {
+  id: number;
+  stock: number;
+  unit?: ProductUnit;
+  item: { name: string; price: number };
+};
 type ServiceRow = {
   id: number;
   durationTime?: number;
+  consumables?: Array<{
+    productId: number;
+    quantity: number;
+    productName?: string;
+    unit?: ProductUnit;
+  }>;
   item: { id: number; name: string; price: number };
+};
+
+type ConsumableEdit = {
+  productId: number;
+  productName: string;
+  quantity: number;
+  suggestedQuantity: number;
+  stock: number;
+  unit?: ProductUnit;
+  quantityLabel?: string;
+  stockLabel?: string;
 };
 
 function statusLabel(status: string) {
@@ -86,12 +109,16 @@ export default function AdminOrderDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [consumables, setConsumables] = useState<ConsumableEdit[]>([]);
+  const [consumablesEnabled, setConsumablesEnabled] = useState(false);
+  const [consumablesReason, setConsumablesReason] = useState("");
+  const [showConsumableAdjust, setShowConsumableAdjust] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [o, prods, svcs, emps] = await Promise.all([
+      const [o, prods, svcs, emps, cons] = await Promise.all([
         api<Order>(`/v1/orders/${id}`, { tenantSlug: slug, auth: true }),
-        api<ProductRow[]>("/v1/catalog/products", {
+        api<ProductRow[]>("/v1/catalog/products?for=sale", {
           tenantSlug: slug,
           auth: true,
         }),
@@ -103,11 +130,28 @@ export default function AdminOrderDetailPage() {
           tenantSlug: slug,
           auth: true,
         }).catch(() => []),
+        api<{
+          enabled: boolean;
+          items: ConsumableEdit[];
+        }>(`/v1/orders/${id}/consumables`, {
+          tenantSlug: slug,
+          auth: true,
+        }).catch(() => ({ enabled: false, items: [] })),
       ]);
       setOrder(o);
       setProducts(prods);
       setServices(svcs);
       setEmployees(emps);
+      setConsumablesEnabled(Boolean(cons.enabled));
+      setConsumables(
+        (cons.items ?? []).map((c) => ({
+          ...c,
+          quantity: c.quantity,
+          suggestedQuantity: c.suggestedQuantity ?? c.quantity,
+        })),
+      );
+      setConsumablesReason("");
+      setShowConsumableAdjust(false);
     } catch {
       setOrder(null);
     }
@@ -125,6 +169,12 @@ export default function AdminOrderDetailPage() {
   const remaining = Math.max(0, Number(total) - paid);
   const isEditable = order?.status === "draft" || order?.status === "open";
   const addingService = catalogKey.startsWith("service:");
+  const selectedServiceConsumables = useMemo(() => {
+    if (!addingService) return [];
+    const itemId = catalogKey.split(":")[1];
+    const svc = services.find((s) => String(s.item.id) === itemId);
+    return svc?.consumables ?? [];
+  }, [addingService, catalogKey, services]);
 
   const stylistsOnTicket = useMemo(() => {
     const names = new Set<string>();
@@ -242,6 +292,11 @@ export default function AdminOrderDetailPage() {
     }
   }
 
+  const consumablesAdjusted = useMemo(
+    () => consumables.some((c) => c.quantity !== c.suggestedQuantity),
+    [consumables],
+  );
+
   async function finalize() {
     const missing = (order?.items ?? []).filter(
       (item) => isServiceLine(item) && !item.employeeId && !item.employee?.id,
@@ -252,13 +307,33 @@ export default function AdminOrderDetailPage() {
       );
       return;
     }
+    if (consumablesAdjusted && !consumablesReason.trim()) {
+      setShowConsumableAdjust(true);
+      setMessage(
+        "Indicá el motivo del ajuste de insumos (ej. pelo largo).",
+      );
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
+      const body =
+        consumablesEnabled && consumables.length > 0
+          ? {
+              consumables: consumables.map((c) => ({
+                product_id: c.productId,
+                quantity: c.quantity,
+              })),
+              consumables_reason: consumablesAdjusted
+                ? consumablesReason.trim()
+                : undefined,
+            }
+          : undefined;
       await api(`/v1/orders/${id}/finalize`, {
         method: "PATCH",
         tenantSlug: slug,
         auth: true,
+        body,
       });
       await load();
       window.open(`/s/${slug}/admin/orders/${id}/print`, "_blank");
@@ -437,7 +512,7 @@ export default function AdminOrderDetailPage() {
                     ...products.map((p) => ({
                       value: `product:${p.id}`,
                       label: p.item.name,
-                      description: `Producto · ${formatMoney(p.item.price)} · Stock ${p.stock}`,
+                      description: `Producto · ${formatMoney(p.item.price)} · ${formatStockQty(p.stock, p.unit ?? "unit")}`,
                     })),
                   ]}
                   onChange={(v) => {
@@ -477,6 +552,24 @@ export default function AdminOrderDetailPage() {
                 <Plus size={16} strokeWidth={2.25} />
                 Agregar
               </button>
+              {selectedServiceConsumables.length > 0 ? (
+                <div className="w-full rounded-2xl bg-brand-warm/60 px-3.5 py-2.5 text-sm text-brand-ink">
+                  <span className="font-medium">Insumos: </span>
+                  {selectedServiceConsumables
+                    .map((c) => {
+                      const qty = formatStockQty(
+                        c.quantity,
+                        c.unit ?? "unit",
+                      );
+                      return `${c.productName ?? `#${c.productId}`} ${qty}`;
+                    })
+                    .join(" · ")}
+                  <span className="text-brand-text-muted">
+                    {" "}
+                    (se descuentan al finalizar)
+                  </span>
+                </div>
+              ) : null}
             </form>
           ) : null}
         </AdminSection>
@@ -513,6 +606,99 @@ export default function AdminOrderDetailPage() {
               </div>
             ) : null}
           </div>
+
+          {isEditable && consumablesEnabled && consumables.length > 0 ? (
+            <AdminSection
+              title="Insumos a descontar"
+              description="Receta del servicio. Solo ajustá si hubo excepción (pelo largo, etc.)."
+            >
+              <ul className="space-y-2">
+                {consumables.map((c) => (
+                  <li
+                    key={c.productId}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-brand-warm/70 px-3.5 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-brand-ink">
+                        {c.productName}
+                      </p>
+                      <p className="text-xs text-brand-text-muted">
+                        Receta{" "}
+                        {c.quantityLabel ??
+                          formatStockQty(
+                            c.suggestedQuantity,
+                            c.unit ?? "unit",
+                          )}{" "}
+                        · stock{" "}
+                        {c.stockLabel ??
+                          formatStockQty(c.stock, c.unit ?? "unit")}
+                      </p>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="input-field w-20 !rounded-xl !py-2 text-center"
+                      value={c.quantity}
+                      onChange={(e) => {
+                        const next = Math.max(
+                          0,
+                          Math.trunc(Number(e.target.value) || 0),
+                        );
+                        setConsumables((rows) =>
+                          rows.map((r) =>
+                            r.productId === c.productId
+                              ? { ...r, quantity: next }
+                              : r,
+                          ),
+                        );
+                        setShowConsumableAdjust(true);
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+              {showConsumableAdjust || consumablesAdjusted ? (
+                <div className="mt-3">
+                  <label className="label-field">
+                    Motivo del ajuste (si cambiás cantidades)
+                  </label>
+                  <input
+                    className="input-field !rounded-2xl"
+                    value={consumablesReason}
+                    onChange={(e) => setConsumablesReason(e.target.value)}
+                    placeholder="Ej. pelo largo, usó más producto"
+                  />
+                  {consumablesAdjusted ? (
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-medium text-brand-text-muted underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setConsumables((rows) =>
+                          rows.map((r) => ({
+                            ...r,
+                            quantity: r.suggestedQuantity,
+                          })),
+                        );
+                        setConsumablesReason("");
+                        setShowConsumableAdjust(false);
+                      }}
+                    >
+                      Volver a la receta
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-3 text-xs font-medium text-brand-ink underline-offset-2 hover:underline"
+                  onClick={() => setShowConsumableAdjust(true)}
+                >
+                  Ajuste excepcional…
+                </button>
+              )}
+            </AdminSection>
+          ) : null}
 
           <AdminSection title={tr("orders.payments")} description="Registrá cómo paga la clienta.">
             {payments.length > 0 ? (

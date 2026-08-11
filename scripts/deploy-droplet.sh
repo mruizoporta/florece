@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 HOST="${FLORECE_DEPLOY_HOST:-root@209.38.139.227}"
 REMOTE_DIR="${FLORECE_REMOTE_DIR:-/opt/florece}"
-PUBLIC_URL="${FLORECE_PUBLIC_URL:-http://209.38.139.227:8090}"
+PUBLIC_URL="${FLORECE_PUBLIC_URL:-https://floreceapp.com}"
 
 # Build DATABASE_URL for server (local Postgres on droplet)
 if [[ -z "${FLORECE_DATABASE_URL:-}" && -f "${ROOT_DIR}/.env" ]]; then
@@ -101,6 +101,21 @@ if grep -q '^STORAGE_ROOT=' "${REMOTE_DIR}/.env"; then
 else
   echo 'STORAGE_ROOT=/var/lib/florece/storage' >> "${REMOTE_DIR}/.env"
 fi
+
+# Dominio público (actualizar URLs aunque .env ya exista)
+for key in APP_URL CORS_ORIGIN NEXT_PUBLIC_APP_URL NEXT_PUBLIC_WS_URL API_URL; do
+  if grep -q "^${key}=" "${REMOTE_DIR}/.env"; then
+    case "${key}" in
+      API_URL) sed -i "s|^${key}=.*|${key}=${PUBLIC_URL}/backend|" "${REMOTE_DIR}/.env" ;;
+      *)       sed -i "s|^${key}=.*|${key}=${PUBLIC_URL}|" "${REMOTE_DIR}/.env" ;;
+    esac
+  else
+    case "${key}" in
+      API_URL) echo "${key}=${PUBLIC_URL}/backend" >> "${REMOTE_DIR}/.env" ;;
+      *)       echo "${key}=${PUBLIC_URL}" >> "${REMOTE_DIR}/.env" ;;
+    esac
+  fi
+done
 EOF
 
 echo "==> Remote install, build, seed, restart"
@@ -136,16 +151,26 @@ if command -v psql >/dev/null 2>&1; then
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_stylist_link/migration.sql || true
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_inventory/migration.sql || true
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_service_consumables/migration.sql || true
+  sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_product_usage_unit/migration.sql || true
 fi
 
 npm run prisma:seed -w @florece/api || echo "Seed warning (non-fatal)"
 
 install -m 644 ${REMOTE_DIR}/deploy/florece-api.service /etc/systemd/system/florece-api.service
 install -m 644 ${REMOTE_DIR}/deploy/florece-web.service /etc/systemd/system/florece-web.service
-install -m 644 ${REMOTE_DIR}/deploy/nginx-florece.conf /etc/nginx/sites-available/florece
+
+# Nginx: con cert → conf completa; sin cert → bootstrap HTTP (para ACME)
+if [[ -f /etc/letsencrypt/live/floreceapp.com/fullchain.pem ]]; then
+  install -m 644 ${REMOTE_DIR}/deploy/nginx-florece.conf /etc/nginx/sites-available/florece
+else
+  echo "SSL cert missing — installing HTTP bootstrap (certbot next)"
+  install -m 644 ${REMOTE_DIR}/deploy/nginx-florece-bootstrap.conf /etc/nginx/sites-available/florece
+fi
 ln -sfn /etc/nginx/sites-available/florece /etc/nginx/sites-enabled/florece
 
 if command -v ufw >/dev/null 2>&1; then
+  ufw allow 80/tcp || true
+  ufw allow 443/tcp || true
   ufw allow 8090/tcp || true
 fi
 
@@ -158,6 +183,20 @@ systemctl restart florece-web
 
 nginx -t
 systemctl reload nginx
+
+# Emitir certificado si DNS ya apunta aquí
+if command -v certbot >/dev/null 2>&1; then
+  if [[ ! -f /etc/letsencrypt/live/floreceapp.com/fullchain.pem ]]; then
+    echo "Requesting Let's Encrypt cert for floreceapp.com ..."
+    certbot --nginx -d floreceapp.com -d www.floreceapp.com \
+      --non-interactive --agree-tos --email owner@floreceapp.com \
+      --redirect || echo "certbot warning (DNS may not point here yet)"
+    if [[ -f /etc/letsencrypt/live/floreceapp.com/fullchain.pem ]]; then
+      install -m 644 ${REMOTE_DIR}/deploy/nginx-florece.conf /etc/nginx/sites-available/florece
+      nginx -t && systemctl reload nginx
+    fi
+  fi
+fi
 
 echo "Waiting for API :3020 ..."
 ok=0

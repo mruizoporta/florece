@@ -7,7 +7,7 @@
 | IP | `209.38.139.227` |
 | SSH | `ssh -i ~/.ssh/id_ed25519 root@209.38.139.227` |
 | Ya corre | **Cifra** (`usacifra.com`, API `:3010`) · **DealerFlow** (`getdealerflowai.com`) |
-| Florece (este deploy) | http://209.38.139.227:8090 |
+| Florece (este deploy) | https://floreceapp.com (respaldo http://209.38.139.227:8090) |
 | Postgres DB | `salon_saas` (usuario `shearly`, ya existe) |
 | Puertos internos | API Nest `3020` · Web Next `3021` · nginx público `8090` |
 
@@ -30,19 +30,17 @@ Variables opcionales: `FLORECE_DEPLOY_HOST`, `FLORECE_REMOTE_DIR`, `FLORECE_PUBL
 
 ## Demo
 
-- Panel: http://209.38.139.227:8090/login  
+- Panel: https://floreceapp.com/login  
   slug `demo` · `admin@demo.florece.app` · `demo1234`
-- Sitio: http://209.38.139.227:8090/s/demo
+- Sitio: https://floreceapp.com/s/demo
 - Plataforma: slug `ops` · `owner@florece.app` · `florece-owner-2026`
+- Respaldo IP: http://209.38.139.227:8090
 
-## Dominio (después)
+## Dominio
 
-Cuando tengas DNS (ej. `florece.app` → `209.38.139.227`):
+DNS: `floreceapp.com` + `www` → `209.38.139.227`.
 
-1. Añadir `server_name` en `deploy/nginx-florece.conf` (80/443)
-2. `certbot --nginx -d florece.app -d www.florece.app`
-3. Actualizar `APP_URL` / `CORS_ORIGIN` / `NEXT_PUBLIC_*` en `/opt/florece/.env`
-4. Re-deploy
+El deploy actualiza nginx, URLs en `.env` y pide cert Let's Encrypt con certbot si aún no existe.
 
 ## Logs
 

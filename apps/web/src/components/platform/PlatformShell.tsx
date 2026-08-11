@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { logout } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 
 const links = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
@@ -81,9 +82,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       <aside className="admin-sidebar sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col text-white lg:flex">
         <div className="px-5 pb-5 pt-7">
           <Link href="/admin" className="block">
-            <span className="font-serif text-[1.85rem] leading-none font-semibold tracking-tight">
-              Florece
-            </span>
+            <FloreceLogo tone="onDark" size="lg" />
             <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand-primary/15 px-2.5 py-1 text-[10px] font-bold tracking-[0.14em] text-brand-primary uppercase ring-1 ring-brand-primary/30">
               <Sparkles size={11} />
               Plataforma
@@ -116,7 +115,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           />
           <div className="admin-sidebar absolute inset-y-0 left-0 flex w-[15.5rem] flex-col shadow-2xl">
             <div className="flex items-center justify-between px-5 pt-6 pb-4">
-              <span className="font-serif text-2xl font-semibold">Florece</span>
+              <FloreceLogo tone="onDark" size="md" />
               <button
                 type="button"
                 aria-label="Cerrar menú"
@@ -152,9 +151,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             <Menu size={18} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="font-serif text-lg font-semibold leading-none text-brand-ink">
-              Florece
-            </p>
+            <FloreceLogo tone="ink" size="sm" className="text-brand-ink" />
             <p className="mt-0.5 text-[11px] text-brand-text-muted">{title}</p>
           </div>
           <ThemeToggle compact />

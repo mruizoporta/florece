@@ -229,9 +229,9 @@ const strings = {
     "billing.viewPlans": "Ver planes",
     "billing.askPlan": "¿Querés subir, bajar o consultar otro plan?",
     "billing.perMonth": "/mes",
-    "landing.plansTitle": "Planes en córdobas",
+    "landing.plansTitle": "Precios de lanzamiento para salones",
     "landing.plansSubtitle":
-      "Precios claros para Nicaragua. Pro suma POS, inventario e insumos por servicio. Activación por pago manual.",
+      "Tarifas claras en córdobas. Pro cubre caja, inventario y piso del estilista — por debajo de sistemas locales caros. Activación por transferencia.",
     "landing.startTrial": "Empezar {days} días",
     "upgrade.title": "Tu plan no incluye este módulo",
     "upgrade.body":
@@ -570,9 +570,9 @@ const strings = {
     "billing.viewPlans": "View plans",
     "billing.askPlan": "Want to upgrade, downgrade, or ask about a plan?",
     "billing.perMonth": "/mo",
-    "landing.plansTitle": "Plans in córdobas",
+    "landing.plansTitle": "Launch pricing for salons",
     "landing.plansSubtitle":
-      "Clear pricing for Nicaragua. Pro adds POS, inventory, and service consumables. Manual payment activation.",
+      "Clear córdoba pricing. Pro covers POS, inventory, and stylist floor — under pricier local systems. Activate by transfer.",
     "landing.startTrial": "Start {days}-day trial",
     "upgrade.title": "Your plan doesn’t include this module",
     "upgrade.body":

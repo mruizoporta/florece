@@ -138,7 +138,7 @@ export function BookingWizard({
       const payload = {
         name,
         phone: phone || null,
-        typeId: 1,
+        typeName: 'Web' as const,
         employeeId: employeeId!,
         date,
         time,

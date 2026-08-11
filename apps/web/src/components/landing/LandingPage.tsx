@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Menu,
   MessageCircle,
+  Package,
   Scissors,
   Sparkles,
   Store,
@@ -22,6 +23,10 @@ import {
 } from "@florece/shared";
 import { SITE } from "@/lib/site";
 import { SocialLinks } from "@/components/landing/SocialLinks";
+import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
+import { ModulesStrip } from "@/components/landing/ModulesStrip";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLocale } from "@/components/LocaleProvider";
 import { HelpAssistant } from "@/components/assistant/HelpAssistant";
@@ -37,15 +42,23 @@ const FAQ = [
   },
   {
     q: "¿Sirve para barberías y spas?",
-    a: "Sí. Está pensado para salones, barberías, spas y studios de belleza en Nicaragua: citas, catálogo, POS, piso del estilista y presencia web.",
+    a: "Sí. Pensado para salones, barberías, spas y studios en Nicaragua: citas, catálogo, POS, inventario, piso del estilista y presencia web.",
+  },
+  {
+    q: "¿Controlan inventario e insumos?",
+    a: "En Pro y Premium: vitrina (retail) e insumos de uso interno (g/ml) por separado. La receta del servicio descuenta insumos al cobrar; caja puede ajustar con motivo. El estilista ve qué pedir, sin editar stock.",
   },
   {
     q: "¿Los estilistas pueden anotar lo que hacen?",
-    a: "Sí. Con el rol Estilista entran a un piso móvil: buscan la hoja de la clienta, anotan el servicio y ven su comisión del día. Caja cierra el ticket al cobrar.",
+    a: "Sí. Con el rol Estilista entran a un piso móvil: buscan la hoja, ven los insumos del servicio, anotan y revisan su comisión del día. Caja cierra el ticket al cobrar.",
   },
   {
     q: "¿Puedo escribirles por WhatsApp?",
-    a: "Sí. Usá el botón verde o el enlace de contacto: abrimos un chat contigo para activar o renovar tu plan.",
+    a: "Sí. El botón verde es para hablar con Florece (activar o renovar). Además, desde el tablero y el detalle de cada cita podés abrir WhatsApp a la clienta con el mensaje de confirmar o recordar ya escrito.",
+  },
+  {
+    q: "¿Qué pasa cuando alguien agenda desde mi sitio?",
+    a: "Se crea una reserva (tipo Web) en estado Pendiente. Aparece en el calendario y en el tablero. Después podés confirmarle por WhatsApp desde el panel.",
   },
   {
     q: "¿Hay multi-sucursal?",
@@ -53,21 +66,44 @@ const FAQ = [
   },
 ];
 
+const pillars = [
+  {
+    icon: Store,
+    title: "Operación del día",
+    text: "Agenda, tablero, WhatsApp a la clienta, caja y cierre — recepción y sillón en el mismo ritmo.",
+  },
+  {
+    icon: Package,
+    title: "Stock que cuadra",
+    text: "Vitrina e insumos (g/ml). La receta del servicio descuenta al cobrar; menos quiebres.",
+  },
+  {
+    icon: Scissors,
+    title: "Equipo con control",
+    text: "Piso móvil, comisiones claras y roles (agenda, caja, estilista, admin).",
+  },
+  {
+    icon: Sparkles,
+    title: "Presencia que vende",
+    text: "Sitio propio, reservas online Web, Instagram y (Premium) varias sucursales.",
+  },
+];
+
 const audience = [
   {
     icon: Scissors,
     title: "Dueños de salón",
-    text: "Agenda, equipo, caja y comisiones en un solo panel — sin Excel ni WhatsApp eterno.",
+    text: "Agenda, caja, inventario, comisiones y sitio — con control real de insumos.",
   },
   {
     icon: Store,
     title: "Barberías",
-    text: "Turnos claros, hojas de servicio y caja del día. El equipo anota en el piso y vos cobrás.",
+    text: "Turnos, hojas de servicio y caja del día. El piso anota; vos cobrás y el stock cuadra.",
   },
   {
     icon: Sparkles,
     title: "Spas y studios",
-    text: "Sitio propio, catálogo e Instagram — presencia que vende mientras el piso sigue ordenado.",
+    text: "Marca online + operación ordenada: catálogo, equipo y reservas sin pelear chats.",
   },
 ];
 
@@ -114,15 +150,14 @@ export function LandingPage() {
 
         <header className="relative z-30 border-b border-white/10 bg-[#12141a]/55 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-3.5 sm:px-6">
-            <a href="#" className="shrink-0">
-              <span className="font-serif text-[1.65rem] leading-none font-semibold tracking-tight text-white">
-                Florece
-              </span>
+            <a href="#" className="shrink-0" aria-label="Florece">
+              <FloreceLogo tone="onDark" size="md" />
             </a>
 
             <nav className="ml-2 hidden items-center gap-1 lg:flex">
               {[
                 { href: "#funciones", label: tr("landing.nav.features") },
+                { href: "#producto", label: "Producto" },
                 { href: "#planes", label: tr("landing.nav.plans") },
                 { href: "#faq", label: tr("landing.nav.faq") },
               ].map((item) => (
@@ -172,6 +207,7 @@ export function LandingPage() {
               <nav className="flex flex-col gap-1">
                 {[
                   { href: "#funciones", label: "Funciones" },
+                  { href: "#producto", label: "Producto" },
                   { href: "#planes", label: "Planes" },
                   { href: "#faq", label: "Preguntas" },
                 ].map((item) => (
@@ -202,13 +238,13 @@ export function LandingPage() {
         </header>
 
         <div className="relative z-10 mx-auto flex min-h-[calc(100svh-5.5rem)] max-w-6xl flex-col justify-center px-6 pb-20 pt-8">
-          <motion.p
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="font-serif text-[clamp(3.4rem,12vw,7.2rem)] leading-[0.9] font-semibold tracking-tight text-white"
+            className="leading-[0.9] text-white"
           >
-            Florece
-          </motion.p>
+            <FloreceLogo tone="onDark" size="hero" />
+          </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -223,8 +259,8 @@ export function LandingPage() {
             transition={{ delay: 0.2 }}
             className="mt-4 max-w-lg text-lg text-white/75 md:text-xl"
           >
-            Citas, catálogo, caja, piso del estilista y sitio web — cobrás por
-            transferencia y activamos tu período.
+            Citas, caja, inventario, piso, comisiones, WhatsApp a clientas y sitio
+            web — cobrás por transferencia y activamos tu período.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -260,15 +296,14 @@ export function LandingPage() {
 
       <section id="funciones" className="mx-auto max-w-6xl px-6 py-20">
         <h2 className="font-serif text-4xl font-semibold tracking-tight md:text-5xl">
-          Agenda, cobro, piso y presencia — en un solo lugar
+          Pensado para el ritmo real del salón
         </h2>
         <p className="mt-4 max-w-2xl text-lg text-brand-text-muted">
-          Hecho para dueños de salón en Nicaragua: citas, equipo, caja,
-          comisiones y sitio web, sin pelear con Excel ni con sistemas
-          genéricos.
+          No es un calendarito genérico: operación completa para dueños en
+          Nicaragua — del turno al cobro, del insumo a la comisión.
         </p>
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
-          {audience.map((item, i) => {
+        <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          {pillars.map((item, i) => {
             const Icon = item.icon;
             return (
               <motion.div
@@ -284,6 +319,67 @@ export function LandingPage() {
               </motion.div>
             );
           })}
+        </div>
+        <div className="mt-16 grid gap-8 border-t border-brand-ink/8 pt-14 md:grid-cols-3">
+          {audience.map((item, i) => {
+            const Icon = item.icon;
+            return (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+              >
+                <Icon className="text-brand-primary-dark" size={22} />
+                <h3 className="mt-3 font-serif text-xl">{item.title}</h3>
+                <p className="mt-2 text-sm text-brand-text-muted">{item.text}</p>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      <ModulesStrip />
+
+      <div id="producto">
+        <FeatureShowcase />
+      </div>
+
+      <HowItWorks />
+
+      <section className="border-y border-brand-ink/8 bg-brand-ink px-6 py-16 text-white">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-8 md:flex-row md:items-center">
+          <div className="max-w-xl">
+            <h2 className="font-serif text-3xl font-semibold tracking-tight md:text-4xl">
+              Probá el salón demo antes de decidir
+            </h2>
+            <p className="mt-3 text-white/65">
+              Entrá al panel, al piso del estilista o al sitio público — mismos
+              datos que usamos en las capturas.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/s/${DEMO_SLUG}/admin`}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-3 text-sm font-semibold text-brand-ink"
+            >
+              Panel demo
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              href={`/s/${DEMO_SLUG}/stylist`}
+              className="inline-flex items-center rounded-xl border border-white/25 px-5 py-3 text-sm font-semibold text-white"
+            >
+              Piso estilista
+            </Link>
+            <Link
+              href={`/s/${DEMO_SLUG}`}
+              className="inline-flex items-center rounded-xl px-4 py-3 text-sm font-semibold text-white/75 hover:text-white"
+            >
+              Sitio público
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -311,7 +407,7 @@ export function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.07 }}
-                className={`rounded-3xl border p-6 ${
+                className={`flex h-full flex-col rounded-3xl border p-6 ${
                   plan.slug === "pro"
                     ? "border-brand-primary bg-[#1a1c22] text-white"
                     : "border-brand-ink/10 bg-white"
@@ -320,13 +416,25 @@ export function LandingPage() {
                 <p className="text-sm font-semibold tracking-wide uppercase opacity-70">
                   {plan.name}
                 </p>
+                {plan.slug === "pro" ? (
+                  <p className="mt-1 inline-flex rounded-full bg-brand-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-primary">
+                    Recomendado
+                  </p>
+                ) : null}
                 <p className="mt-3 font-serif text-4xl">
                   C$ {plan.priceNioMonthly.toLocaleString("es-NI")}
                   <span className="text-base opacity-60">
                     {tr("billing.perMonth")}
                   </span>
                 </p>
-                <ul className="mt-5 space-y-2 text-sm">
+                <p
+                  className={`text-sm ${
+                    plan.slug === "pro" ? "text-white/55" : "text-brand-text-muted"
+                  }`}
+                >
+                  ≈ ${plan.priceUsdMonthly} USD
+                </p>
+                <ul className="mt-5 flex-1 space-y-2 text-sm">
                   {bullets.map((f) => (
                     <li key={f} className="flex gap-2">
                       <Check
@@ -343,7 +451,7 @@ export function LandingPage() {
                 </ul>
                 <Link
                   href={`/registrar-salon?plan=${plan.slug}`}
-                  className={`mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${
+                  className={`mt-6 inline-flex w-full shrink-0 items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${
                     plan.slug === "pro"
                       ? "bg-brand-primary text-brand-ink"
                       : "bg-brand-ink text-white"
@@ -396,15 +504,19 @@ export function LandingPage() {
       <footer className="border-t border-brand-ink/8 bg-[#1a1c22] px-6 py-12 text-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-serif text-3xl">Florece</p>
+            <FloreceLogo tone="onDark" size="lg" />
             <p className="mt-2 max-w-sm text-sm text-white/60">
-              Software para salones en Nicaragua. Pago por transferencia.
+              Software para salones en Nicaragua: agenda, caja, inventario e
+              insumos. Pago por transferencia.
             </p>
             <SocialLinks className="mt-5" tone="onDark" showLabels />
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-white/70">
             <a href="#funciones" className="hover:text-white">
               Funciones
+            </a>
+            <a href="#producto" className="hover:text-white">
+              Producto
             </a>
             <a href="#planes" className="hover:text-white">
               Planes

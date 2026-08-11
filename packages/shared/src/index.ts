@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export * from './plans';
+export * from './inventory';
 
 export const RoleName = {
   Admin: 'Admin',
@@ -124,7 +125,10 @@ export type RegisterSalonInput = z.infer<typeof registerSalonSchema>;
 export const createAppointmentSchema = z.object({
   name: z.string().min(1).max(120),
   phone: z.string().max(40).optional().nullable(),
-  typeId: z.number().int().positive(),
+  /** Optional; if omitted, uses typeName or defaults to Web */
+  typeId: z.number().int().positive().optional(),
+  /** Prefer this over hardcoding type ids (Flash=1 is wrong across tenants) */
+  typeName: z.enum(['Web', 'Local', 'Flash']).optional(),
   employeeId: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),

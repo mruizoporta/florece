@@ -437,8 +437,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: "negocio",
     title: { es: "Catálogo de servicios y productos", en: "Services and products catalog" },
     summary: {
-      es: "Servicios para agenda y productos para venta en caja.",
-      en: "Services for booking and products for POS sales.",
+      es: "Servicios para agenda y productos retail con stock, mínimo y movimientos.",
+      en: "Services for booking and retail products with stock, minimum, and movements.",
     },
     steps: [
       {
@@ -450,12 +450,32 @@ export const HELP_ARTICLES: HelpArticle[] = [
         en: "Add services with duration and price.",
       },
       {
-        es: "Agregá productos si vendés retail en caja.",
-        en: "Add products if you sell retail at the register.",
+        es: "En Pro/Premium, cada servicio puede tener una receta de insumos (productos de uso interno en g/ml/und). Al cobrar se rebajan solos. Creá productos «Insumo» separados de la vitrina; el estilista solo ve qué usar. Si usó más/menos, caja ajusta con motivo.",
+        en: "On Pro/Premium, each service can have a supply recipe (internal-use products in g/ml/units). Checkout deducts them. Create “Supply” products separate from retail; stylists only see what to use. POS can adjust with a reason.",
+      },
+      {
+        es: "Agregá productos retail (vitrina) con stock en unidades. Los insumos van con uso «Insumo» y unidad g/ml. Al finalizar una venta en caja se descuenta solo el retail; los insumos salen por la receta.",
+        en: "Add retail products with unit stock. Supplies use “Internal” and g/ml. Finalizing a POS sale deducts retail only; supplies leave via the recipe.",
+      },
+      {
+        es: "Usá «Ajustar» → Salida para regalías, rifas, daño o uso interno (con motivo). Ingreso para compras. «Movimientos» muestra el historial; filtrá «Solo stock bajo» para reponer.",
+        en: "Use Adjust → Out for gifts, raffles, damage, or internal use (with a reason). In for purchases. Movements shows history; filter Low stock when restocking.",
       },
     ],
     href: "/catalog",
-    keywords: ["catálogo", "servicios", "productos", "precios", "categorías"],
+    keywords: [
+      "catálogo",
+      "servicios",
+      "productos",
+      "precios",
+      "categorías",
+      "stock",
+      "inventario",
+      "mínimo",
+      "insumos",
+      "receta",
+      "consumo",
+    ],
   },
   {
     id: "clientes",

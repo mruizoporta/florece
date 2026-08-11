@@ -4,9 +4,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  isRecipeUsage,
+  isSellableUsage,
+  normalizeProductUnit,
+  normalizeProductUsage,
+  type ProductUnit,
+  type ProductUsage,
+} from '@florece/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
 import { assertCanCreateWithinPlanLimitsOrThrow } from '../billing/plan-limits';
+
+export type ProductListFor = 'sale' | 'recipe' | 'all';
 
 @Injectable()
 export class CatalogService {
@@ -31,7 +41,10 @@ export class CatalogService {
         include: { item: { include: { category: true } } },
       }),
       this.prisma.product.findMany({
-        where: { item: { tenantId, status: true } },
+        where: {
+          item: { tenantId, status: true },
+          usage: { in: ['retail', 'both'] },
+        },
         include: { item: { include: { category: true } } },
       }),
     ]);
@@ -45,19 +58,29 @@ export class CatalogService {
 
   listServices(search?: string, limit = 50) {
     const tenantId = this.tenantId();
-    return this.prisma.service.findMany({
-      where: {
-        item: {
-          tenantId,
-          ...(search
-            ? { name: { contains: search, mode: 'insensitive' } }
-            : {}),
+    return this.prisma.service
+      .findMany({
+        where: {
+          item: {
+            tenantId,
+            ...(search
+              ? { name: { contains: search, mode: 'insensitive' } }
+              : {}),
+          },
         },
-      },
-      include: { item: { include: { category: true } } },
-      take: limit,
-      orderBy: { id: 'desc' },
-    });
+        include: {
+          item: { include: { category: true } },
+          consumables: {
+            include: {
+              product: { include: { item: { select: { name: true } } } },
+            },
+            orderBy: { id: 'asc' },
+          },
+        },
+        take: limit,
+        orderBy: { id: 'desc' },
+      })
+      .then((rows) => rows.map((s) => this.mapService(s)));
   }
 
   async createService(data: {
@@ -159,21 +182,39 @@ export class CatalogService {
     return { id: serviceId, archived: true };
   }
 
-  listProducts(search?: string, limit = 50) {
+  listProducts(
+    search?: string,
+    limit = 50,
+    lowOnly = false,
+    forUse: ProductListFor = 'all',
+  ) {
     const tenantId = this.tenantId();
-    return this.prisma.product.findMany({
-      where: {
-        item: {
-          tenantId,
-          ...(search
-            ? { name: { contains: search, mode: 'insensitive' } }
-            : {}),
+    const usageFilter =
+      forUse === 'sale'
+        ? { usage: { in: ['retail', 'both'] } }
+        : forUse === 'recipe'
+          ? { usage: { in: ['internal', 'both'] } }
+          : {};
+
+    return this.prisma.product
+      .findMany({
+        where: {
+          ...usageFilter,
+          item: {
+            tenantId,
+            ...(search
+              ? { name: { contains: search, mode: 'insensitive' } }
+              : {}),
+          },
         },
-      },
-      include: { item: { include: { category: true } } },
-      take: limit,
-      orderBy: { id: 'desc' },
-    });
+        include: { item: { include: { category: true } } },
+        take: Math.min(Math.max(limit, 1), 200),
+        orderBy: { id: 'desc' },
+      })
+      .then((rows) => {
+        const mapped = rows.map((p) => this.mapProduct(p));
+        return lowOnly ? mapped.filter((p) => p.lowStock) : mapped;
+      });
   }
 
   async createProduct(data: {
@@ -185,9 +226,16 @@ export class CatalogService {
     image?: string | null;
     status?: boolean;
     stock?: number;
+    minStock?: number;
+    usage?: string;
+    unit?: string;
   }) {
     const tenantId = this.tenantId();
     const now = new Date();
+    const stock = Math.max(0, Math.floor(data.stock ?? 0));
+    const minStock = Math.max(0, Math.floor(data.minStock ?? 0));
+    const usage = normalizeProductUsage(data.usage);
+    const unit = normalizeProductUnit(data.unit);
     const item = await this.prisma.item.create({
       data: {
         categoryId: BigInt(data.categoryId),
@@ -202,15 +250,34 @@ export class CatalogService {
         updatedAt: now,
       },
     });
-    return this.prisma.product.create({
+    const product = await this.prisma.product.create({
       data: {
         itemId: item.id,
-        stock: data.stock ?? 0,
+        stock,
+        minStock,
+        usage,
+        unit,
         createdAt: now,
         updatedAt: now,
       },
       include: { item: { include: { category: true } } },
     });
+
+    if (stock > 0) {
+      await this.prisma.inventoryMovement.create({
+        data: {
+          tenantId,
+          productId: product.id,
+          type: 'receive',
+          quantity: stock,
+          stockAfter: stock,
+          reason: 'Stock inicial',
+          createdAt: now,
+        },
+      });
+    }
+
+    return this.mapProduct(product);
   }
 
   async updateProduct(
@@ -223,11 +290,28 @@ export class CatalogService {
       description: string;
       image?: string | null;
       status: boolean;
-      stock: number;
+      stock?: number;
+      minStock?: number;
+      usage?: string;
+      unit?: string;
     },
+    userId?: bigint | null,
   ) {
     const product = await this.requireProduct(productId);
     const now = new Date();
+    const minStock =
+      data.minStock != null
+        ? Math.max(0, Math.floor(data.minStock))
+        : product.minStock;
+    const usage =
+      data.usage != null
+        ? normalizeProductUsage(data.usage)
+        : normalizeProductUsage(product.usage);
+    const unit =
+      data.unit != null
+        ? normalizeProductUnit(data.unit)
+        : normalizeProductUnit(product.unit);
+
     await this.prisma.item.update({
       where: { id: product.itemId },
       data: {
@@ -241,11 +325,40 @@ export class CatalogService {
         updatedAt: now,
       },
     });
-    return this.prisma.product.update({
+
+    if (data.stock != null && data.stock !== product.stock) {
+      const next = Math.max(0, Math.floor(data.stock));
+      const delta = next - product.stock;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.product.update({
+          where: { id: productId },
+          data: { stock: next, minStock, usage, unit, updatedAt: now },
+        });
+        await tx.inventoryMovement.create({
+          data: {
+            tenantId: this.tenantId(),
+            productId,
+            userId: userId ?? null,
+            type: 'adjustment',
+            quantity: delta,
+            stockAfter: next,
+            reason: 'Ajuste desde ficha de producto',
+            createdAt: now,
+          },
+        });
+      });
+    } else {
+      await this.prisma.product.update({
+        where: { id: productId },
+        data: { minStock, usage, unit, updatedAt: now },
+      });
+    }
+
+    const updated = await this.prisma.product.findFirstOrThrow({
       where: { id: productId },
-      data: { stock: data.stock, updatedAt: now },
       include: { item: { include: { category: true } } },
     });
+    return this.mapProduct(updated);
   }
 
   async archiveProduct(productId: bigint) {
@@ -257,13 +370,79 @@ export class CatalogService {
     return { id: productId, archived: true };
   }
 
-  async updateProductStock(productId: bigint, stock: number) {
-    await this.requireProduct(productId);
-    return this.prisma.product.update({
-      where: { id: productId },
-      data: { stock, updatedAt: new Date() },
-      include: { item: true },
+  /**
+   * Signed stock change with reason (receive / adjustment / correction).
+   * delta > 0 adds stock; delta < 0 removes.
+   */
+  async adjustProductStock(
+    productId: bigint,
+    data: { delta: number; reason?: string; type?: string },
+    userId?: bigint | null,
+  ) {
+    const delta = Math.trunc(data.delta);
+    if (!delta) {
+      throw new BadRequestException('delta must be a non-zero integer');
+    }
+    const reason = data.reason?.trim() || null;
+    if (!reason) {
+      throw new BadRequestException('reason is required');
+    }
+    const type =
+      data.type === 'receive' || data.type === 'adjustment'
+        ? data.type
+        : delta > 0
+          ? 'receive'
+          : 'adjustment';
+
+    const product = await this.requireProduct(productId);
+    const next = product.stock + delta;
+    if (next < 0) {
+      throw new BadRequestException(
+        `Stock insuficiente (hay ${product.stock}, delta ${delta})`,
+      );
+    }
+
+    const now = new Date();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.product.update({
+        where: { id: productId },
+        data: { stock: next, updatedAt: now },
+        include: { item: { include: { category: true } } },
+      });
+      await tx.inventoryMovement.create({
+        data: {
+          tenantId: this.tenantId(),
+          productId,
+          userId: userId ?? null,
+          type,
+          quantity: delta,
+          stockAfter: next,
+          reason,
+          createdAt: now,
+        },
+      });
+      return row;
     });
+
+    return this.mapProduct(updated);
+  }
+
+  listProductMovements(productId: bigint, limit = 40) {
+    return this.requireProduct(productId).then(() =>
+      this.prisma.inventoryMovement.findMany({
+        where: { productId, tenantId: this.tenantId() },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: Math.min(Math.max(limit, 1), 100),
+        include: {
+          user: { select: { id: true, name: true } },
+          order: { select: { id: true, name: true, status: true } },
+        },
+      }),
+    );
+  }
+
+  listLowStock(limit = 50) {
+    return this.listProducts(undefined, limit, true);
   }
 
   listCategories() {
@@ -309,15 +488,126 @@ export class CatalogService {
     return { deleted: true };
   }
 
-  private mapService(
-    service: Prisma.ServiceGetPayload<{
-      include: { item: { include: { category: true } } };
-    }>,
+  listServiceConsumables(serviceId: bigint) {
+    return this.requireService(serviceId).then(() =>
+      this.prisma.serviceConsumable.findMany({
+        where: { serviceId, tenantId: this.tenantId() },
+        include: {
+          product: { include: { item: { select: { name: true } } } },
+        },
+        orderBy: { id: 'asc' },
+      }),
+    ).then((rows) => rows.map((r) => this.mapConsumable(r)));
+  }
+
+  /**
+   * Replace the full recipe for a service (units = same unit as product stock).
+   * Only internal / both products are allowed.
+   */
+  async setServiceConsumables(
+    serviceId: bigint,
+    items: Array<{ productId: number; quantity: number }>,
   ) {
+    await this.requireService(serviceId);
+    const tenantId = this.tenantId();
+    const now = new Date();
+    const cleaned: Array<{ productId: bigint; quantity: number }> = [];
+    const seen = new Set<string>();
+
+    for (const raw of items) {
+      const qty = Math.trunc(Number(raw.quantity));
+      if (!Number.isFinite(qty) || qty < 1) {
+        throw new BadRequestException('Cada insumo necesita cantidad ≥ 1');
+      }
+      const productId = BigInt(raw.productId);
+      const key = productId.toString();
+      if (seen.has(key)) {
+        throw new BadRequestException('Producto duplicado en la receta');
+      }
+      seen.add(key);
+      const product = await this.prisma.product.findFirst({
+        where: { id: productId, item: { tenantId } },
+        include: { item: { select: { name: true } } },
+      });
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
+      const usage = normalizeProductUsage(product.usage);
+      if (!isRecipeUsage(usage)) {
+        throw new BadRequestException(
+          `«${product.item.name}» es solo vitrina; usá un producto de uso interno (insumo) o Ambos`,
+        );
+      }
+      cleaned.push({ productId, quantity: qty });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.serviceConsumable.deleteMany({
+        where: { serviceId, tenantId },
+      });
+      if (cleaned.length === 0) return;
+      await tx.serviceConsumable.createMany({
+        data: cleaned.map((c) => ({
+          tenantId,
+          serviceId,
+          productId: c.productId,
+          quantity: c.quantity,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      });
+    });
+
+    return this.listServiceConsumables(serviceId);
+  }
+
+  private mapConsumable(row: {
+    id: bigint;
+    productId: bigint;
+    quantity: number;
+    product: {
+      stock: number;
+      usage?: string;
+      unit?: string;
+      item: { name: string };
+    };
+  }) {
+    const usage = normalizeProductUsage(row.product.usage);
+    const unit = normalizeProductUnit(row.product.unit);
     return {
-      id: service.id,
+      id: Number(row.id),
+      productId: Number(row.productId),
+      quantity: row.quantity,
+      productName: row.product.item.name,
+      stock: row.product.stock,
+      usage,
+      unit,
+    };
+  }
+
+  private mapService(service: {
+    id: bigint;
+    durationTime: number;
+    item: Prisma.ItemGetPayload<{ include: { category: true } }>;
+    consumables?: Array<{
+      id: bigint;
+      productId: bigint;
+      quantity: number;
+      product: {
+        stock: number;
+        usage?: string;
+        unit?: string;
+        item: { name: string };
+      };
+    }>;
+  }) {
+    const consumables = service.consumables?.map((c) => this.mapConsumable(c));
+    return {
+      id: Number(service.id),
       durationTime: service.durationTime,
       item: service.item,
+      consumables: consumables ?? [],
+      consumablesCount: consumables?.length ?? 0,
     };
   }
 
@@ -326,9 +616,18 @@ export class CatalogService {
       include: { item: { include: { category: true } } };
     }>,
   ) {
+    const lowStock = product.stock <= product.minStock;
+    const usage = normalizeProductUsage(product.usage) as ProductUsage;
+    const unit = normalizeProductUnit(product.unit) as ProductUnit;
     return {
-      id: product.id,
+      id: Number(product.id),
       stock: product.stock,
+      minStock: product.minStock,
+      lowStock,
+      usage,
+      unit,
+      sellable: isSellableUsage(usage),
+      recipeEligible: isRecipeUsage(usage),
       item: product.item,
     };
   }

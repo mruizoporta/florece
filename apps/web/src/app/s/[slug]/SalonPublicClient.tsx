@@ -23,6 +23,7 @@ import {
 import { salonThemeFromSetting, salonThemeStyle } from "@/lib/theme";
 import { formatCurrency } from "@/lib/format";
 import { HelpAssistant } from "@/components/assistant/HelpAssistant";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 
 function ScissorsIcon({ className = "h-14 w-14" }: { className?: string }) {
   return (
@@ -817,10 +818,10 @@ function SalonContent({
             <p>
               © {new Date().getFullYear()} {company}
             </p>
-            <p>
+            <p className="inline-flex items-center gap-2">
               {tr("salon.madeWith")}{" "}
-              <Link href="/" className="opacity-80 transition hover:opacity-100">
-                Florece
+              <Link href="/" className="inline-flex opacity-80 transition hover:opacity-100">
+                <FloreceLogo tone="onDark" size="sm" className="text-base" />
               </Link>
             </p>
           </div>

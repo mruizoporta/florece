@@ -13,6 +13,9 @@ import {
 } from "@/components/admin/AdminUi";
 import { formatDateTime } from "@/lib/format";
 import { useLocale } from "@/components/LocaleProvider";
+import { MessageCircle } from "lucide-react";
+import { appointmentPhone, appointmentWhatsAppUrl } from "@/lib/whatsapp";
+import { getMe } from "@/lib/auth";
 
 function statusTone(name?: string | null) {
   if (!name) return "muted" as const;
@@ -25,9 +28,16 @@ function statusTone(name?: string | null) {
 export default function AdminAppointmentsPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [salonName, setSalonName] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMe()
+      .then((me) => setSalonName(me?.tenant?.name ?? null))
+      .catch(() => setSalonName(null));
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -83,7 +93,36 @@ export default function AdminAppointmentsPage() {
                 )}
               </td>
               <td className="px-5 py-4 text-right">
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-1.5">
+                  {(() => {
+                    const phone = appointmentPhone(a);
+                    const wa = phone
+                      ? appointmentWhatsAppUrl("confirm", {
+                          clientName: a.name,
+                          phone,
+                          startTime: a.startTime,
+                          stylistName: a.employee?.name,
+                          services: a.services
+                            ?.map((s) => s.name)
+                            .filter(Boolean)
+                            .join(", "),
+                          salonName,
+                          locale: locale === "en" ? "en" : "es",
+                        })
+                      : null;
+                    return wa ? (
+                      <a
+                        href={wa}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="WhatsApp"
+                        title="Confirmar por WhatsApp"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#25D366]/15 text-[#128C7E] transition hover:bg-[#25D366]/25"
+                      >
+                        <MessageCircle size={15} strokeWidth={2.25} />
+                      </a>
+                    ) : null;
+                  })()}
                   <AdminIconButton
                     action="view"
                     label="Ver detalle"

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
-  BookOpen,
   Check,
   ChevronDown,
   CircleHelp,
@@ -13,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useLocale } from "@/components/LocaleProvider";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 import {
   filterHelpArticles,
   HELP_ARTICLES,
@@ -121,7 +121,7 @@ export function HelpManual({ slug }: { slug: string }) {
           className={`relative ${mounted ? "animate-[fade-up_0.5s_ease-out]" : "opacity-0"}`}
         >
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand-primary-dark">
-            <BookOpen size={14} />
+            <FloreceLogo variant="mark" tone="gold" size="sm" />
             {lang === "es" ? "Manual Florece" : "Florece guide"}
           </div>
           <h1 className="mt-3 max-w-xl font-serif text-4xl leading-tight text-brand-ink sm:text-5xl">

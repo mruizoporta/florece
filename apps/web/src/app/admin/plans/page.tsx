@@ -51,6 +51,7 @@ const FEATURE_ICONS: Record<FeatureKey, typeof Calendar> = {
   billing: Receipt,
   accounting: Receipt,
   branches: Store,
+  service_consumables: Package,
 };
 
 function limitLabel(n: number | null, unit: string) {

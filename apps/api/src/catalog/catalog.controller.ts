@@ -6,11 +6,17 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireFeature } from '../common/decorators/feature.decorator';
+import { FeatureGuard } from '../common/guards/feature.guard';
+import type { AuthUser } from '../common/types/auth.types';
 import { CatalogService } from './catalog.service';
 
 @ApiTags('catalog')
@@ -50,7 +56,8 @@ export class CatalogController {
       description: string;
       image?: string;
       status?: boolean;
-      duration_time: number;
+      duration_time?: number;
+      durationTime?: number;
     },
   ) {
     return this.catalogService.createService({
@@ -61,7 +68,7 @@ export class CatalogController {
       description: body.description,
       image: body.image,
       status: body.status,
-      durationTime: body.duration_time,
+      durationTime: body.duration_time ?? body.durationTime ?? 30,
     });
   }
 
@@ -79,7 +86,8 @@ export class CatalogController {
       description: string;
       image?: string;
       status: boolean;
-      duration_time: number;
+      duration_time?: number;
+      durationTime?: number;
     },
   ) {
     return this.catalogService.updateService(BigInt(id), {
@@ -90,7 +98,7 @@ export class CatalogController {
       description: body.description,
       image: body.image,
       status: body.status,
-      durationTime: body.duration_time,
+      durationTime: body.duration_time ?? body.durationTime ?? 30,
     });
   }
 
@@ -101,16 +109,63 @@ export class CatalogController {
     return this.catalogService.archiveService(BigInt(id));
   }
 
-  @Get('products')
+  @Get('services/:id/consumables')
+  @ApiBearerAuth()
+  @Roles('Admin', 'Cajero')
+  @UseGuards(FeatureGuard)
+  @RequireFeature('service_consumables')
+  listConsumables(@Param('id') id: string) {
+    return this.catalogService.listServiceConsumables(BigInt(id));
+  }
+
+  @Put('services/:id/consumables')
   @ApiBearerAuth()
   @Roles('Admin')
+  @UseGuards(FeatureGuard)
+  @RequireFeature('service_consumables')
+  setConsumables(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      items?: Array<{
+        product_id?: number;
+        productId?: number;
+        quantity: number;
+      }>;
+    },
+  ) {
+    const items = (body.items ?? []).map((row) => ({
+      productId: Number(row.product_id ?? row.productId),
+      quantity: Number(row.quantity),
+    }));
+    return this.catalogService.setServiceConsumables(BigInt(id), items);
+  }
+
+  @Get('products/low-stock')
+  @ApiBearerAuth()
+  @Roles('Admin', 'Cajero')
+  lowStock(@Query('limit') limit?: string) {
+    return this.catalogService.listLowStock(limit ? Number(limit) : 50);
+  }
+
+  @Get('products')
+  @ApiBearerAuth()
+  @Roles('Admin', 'Cajero')
   listProducts(
     @Query('search') search?: string,
     @Query('limit') limit?: string,
+    @Query('low') low?: string,
+    @Query('for') forUse?: string,
   ) {
+    const scope =
+      forUse === 'sale' || forUse === 'recipe' || forUse === 'all'
+        ? forUse
+        : 'all';
     return this.catalogService.listProducts(
       search,
       limit ? Number(limit) : 50,
+      low === '1' || low === 'true',
+      scope,
     );
   }
 
@@ -128,6 +183,10 @@ export class CatalogController {
       image?: string;
       status?: boolean;
       stock?: number;
+      min_stock?: number;
+      minStock?: number;
+      usage?: string;
+      unit?: string;
     },
   ) {
     return this.catalogService.createProduct({
@@ -139,6 +198,9 @@ export class CatalogController {
       image: body.image,
       status: body.status,
       stock: body.stock,
+      minStock: body.min_stock ?? body.minStock,
+      usage: body.usage,
+      unit: body.unit,
     });
   }
 
@@ -146,6 +208,7 @@ export class CatalogController {
   @ApiBearerAuth()
   @Roles('Admin')
   updateProduct(
+    @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body()
     body: {
@@ -156,19 +219,30 @@ export class CatalogController {
       description: string;
       image?: string;
       status: boolean;
-      stock: number;
+      stock?: number;
+      min_stock?: number;
+      minStock?: number;
+      usage?: string;
+      unit?: string;
     },
   ) {
-    return this.catalogService.updateProduct(BigInt(id), {
-      categoryId: body.category_id,
-      name: body.name,
-      slug: body.slug,
-      price: body.price,
-      description: body.description,
-      image: body.image,
-      status: body.status,
-      stock: body.stock,
-    });
+    return this.catalogService.updateProduct(
+      BigInt(id),
+      {
+        categoryId: body.category_id,
+        name: body.name,
+        slug: body.slug,
+        price: body.price,
+        description: body.description,
+        image: body.image,
+        status: body.status,
+        stock: body.stock,
+        minStock: body.min_stock ?? body.minStock,
+        usage: body.usage,
+        unit: body.unit,
+      },
+      user.id,
+    );
   }
 
   @Patch('products/:id/archive')
@@ -178,11 +252,41 @@ export class CatalogController {
     return this.catalogService.archiveProduct(BigInt(id));
   }
 
-  @Patch('products/:id/stock')
+  @Post('products/:id/adjust')
   @ApiBearerAuth()
-  @Roles('Admin')
-  updateStock(@Param('id') id: string, @Body() body: { stock: number }) {
-    return this.catalogService.updateProductStock(BigInt(id), body.stock);
+  @Roles('Admin', 'Cajero')
+  adjustStock(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      delta: number;
+      reason?: string;
+      type?: string;
+    },
+  ) {
+    return this.catalogService.adjustProductStock(
+      BigInt(id),
+      {
+        delta: body.delta,
+        reason: body.reason,
+        type: body.type,
+      },
+      user.id,
+    );
+  }
+
+  @Get('products/:id/movements')
+  @ApiBearerAuth()
+  @Roles('Admin', 'Cajero')
+  productMovements(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.catalogService.listProductMovements(
+      BigInt(id),
+      limit ? Number(limit) : 40,
+    );
   }
 
   @Get('categories')

@@ -4,14 +4,22 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  formatStockQty,
+  isSellableUsage,
+  normalizeProductUnit,
+  normalizeProductUsage,
+} from '@florece/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContext,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   private tenantId(): bigint {
@@ -203,6 +211,11 @@ export class OrdersService {
       if (!product) {
         throw new BadRequestException('Product not found');
       }
+      if (!isSellableUsage(normalizeProductUsage(product.usage))) {
+        throw new BadRequestException(
+          `«${product.item.name}» es insumo de uso interno; no se vende en caja. Usalo en la receta del servicio.`,
+        );
+      }
       itemId = product.itemId;
       productId = product.id;
       snapshotName = product.item.name;
@@ -352,7 +365,13 @@ export class OrdersService {
     return this.getOrder(orderId);
   }
 
-  async finalize(orderId: bigint) {
+  async finalize(
+    orderId: bigint,
+    opts?: {
+      consumables?: Array<{ productId: number; quantity: number }>;
+      consumablesReason?: string;
+    },
+  ) {
     const order = await this.requireDraftOrder(orderId);
     const total = order.total;
     const payments = await this.prisma.orderPayment.findMany({
@@ -384,8 +403,54 @@ export class OrdersService {
       );
     }
 
+    const saleQty = new Map<string, number>();
+    for (const line of lines) {
+      if (line.productId == null) continue;
+      const key = line.productId.toString();
+      saleQty.set(key, (saleQty.get(key) ?? 0) + line.quantity);
+    }
+
+    const canConsume = await this.entitlements.hasFeature(
+      this.tenantId(),
+      'service_consumables',
+    );
+    const recipeQty = canConsume
+      ? await this.recipeQtyForServiceLines(lines)
+      : new Map<string, number>();
+
+    let consumeQty = recipeQty;
+    let consumeReason = `Insumos de servicio · orden #${orderId}`;
+
+    if (canConsume && opts?.consumables) {
+      const override = this.parseConsumableOverrides(opts.consumables);
+      const changed = this.consumableMapsDiffer(recipeQty, override);
+      if (changed) {
+        const reason = opts.consumablesReason?.trim();
+        if (!reason) {
+          throw new BadRequestException(
+            'Indicá el motivo del ajuste excepcional de insumos (ej. pelo largo)',
+          );
+        }
+        consumeReason = `Insumos ajustados · orden #${orderId}: ${reason}`;
+      }
+      consumeQty = override;
+    }
+
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
+      await this.applyStockOut(tx, saleQty, {
+        orderId,
+        type: 'sale',
+        reason: `Venta orden #${orderId}`,
+        now,
+      });
+      await this.applyStockOut(tx, consumeQty, {
+        orderId,
+        type: 'consume',
+        reason: consumeReason,
+        now,
+      });
+
       for (const line of lines) {
         const isService = line.itemId != null && line.productId == null;
         if (!isService || !line.employee) continue;
@@ -412,21 +477,249 @@ export class OrdersService {
     return this.getOrder(orderId);
   }
 
+  /** Suggested consumable deductions for an open order (from service recipes). */
+  async previewConsumables(orderId: bigint) {
+    const order = await this.requireOrder(orderId);
+    const canConsume = await this.entitlements.hasFeature(
+      this.tenantId(),
+      'service_consumables',
+    );
+    if (!canConsume) {
+      return { enabled: false, items: [] as Array<unknown> };
+    }
+
+    const lines = await this.prisma.itemOrder.findMany({
+      where: { orderId },
+    });
+    const qty = await this.recipeQtyForServiceLines(lines);
+    const items = await this.mapConsumablePreview(qty);
+    return {
+      enabled: true,
+      orderId: Number(order.id),
+      status: order.status,
+      items,
+    };
+  }
+
+  private parseConsumableOverrides(
+    rows: Array<{ productId: number; quantity: number }>,
+  ) {
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      const productId = Number(row.productId);
+      const qty = Math.trunc(Number(row.quantity));
+      if (!Number.isFinite(productId) || productId <= 0) {
+        throw new BadRequestException('productId inválido en insumos');
+      }
+      if (!Number.isFinite(qty) || qty < 0) {
+        throw new BadRequestException(
+          'La cantidad de insumo debe ser un entero ≥ 0',
+        );
+      }
+      if (qty === 0) continue;
+      const key = BigInt(productId).toString();
+      map.set(key, (map.get(key) ?? 0) + qty);
+    }
+    return map;
+  }
+
+  private consumableMapsDiffer(
+    a: Map<string, number>,
+    b: Map<string, number>,
+  ) {
+    if (a.size !== b.size) return true;
+    for (const [k, v] of a) {
+      if ((b.get(k) ?? 0) !== v) return true;
+    }
+    for (const [k, v] of b) {
+      if ((a.get(k) ?? 0) !== v) return true;
+    }
+    return false;
+  }
+
+  private async mapConsumablePreview(qty: Map<string, number>) {
+    const ids = [...qty.keys()].map((k) => BigInt(k));
+    if (ids.length === 0) return [];
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: ids }, item: { tenantId: this.tenantId() } },
+      include: { item: { select: { name: true } } },
+    });
+    const byId = new Map(products.map((p) => [p.id.toString(), p] as const));
+    return ids
+      .map((id) => {
+        const key = id.toString();
+        const product = byId.get(key);
+        if (!product) return null;
+        const unit = normalizeProductUnit(product.unit);
+        const quantity = qty.get(key) ?? 0;
+        return {
+          productId: Number(product.id),
+          productName: product.item.name,
+          quantity,
+          suggestedQuantity: quantity,
+          stock: product.stock,
+          unit,
+          quantityLabel: formatStockQty(quantity, unit),
+          stockLabel: formatStockQty(product.stock, unit),
+        };
+      })
+      .filter(Boolean);
+  }
+
   async cancel(orderId: bigint, reason?: string) {
     const order = await this.requireOrder(orderId);
     if (order.status === 'cancelled') {
       return order;
     }
-    return this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'cancelled',
-        cancelledAt: new Date(),
-        cancelledReason: reason ?? null,
-        updatedAt: new Date(),
-      },
-      include: { items: true, payments: true },
+
+    const wasFinalized = order.status === 'finalized';
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      if (wasFinalized) {
+        const outs = await tx.inventoryMovement.findMany({
+          where: {
+            orderId,
+            tenantId: this.tenantId(),
+            type: { in: ['sale', 'consume'] },
+            quantity: { lt: 0 },
+          },
+        });
+        const restoreQty = new Map<string, number>();
+        for (const move of outs) {
+          const key = move.productId.toString();
+          restoreQty.set(
+            key,
+            (restoreQty.get(key) ?? 0) + Math.abs(move.quantity),
+          );
+        }
+        for (const [productIdStr, qty] of restoreQty) {
+          const productId = BigInt(productIdStr);
+          const product = await tx.product.findFirst({
+            where: { id: productId, item: { tenantId: this.tenantId() } },
+          });
+          if (!product) continue;
+          const next = product.stock + qty;
+          await tx.product.update({
+            where: { id: productId },
+            data: { stock: next, updatedAt: now },
+          });
+          await tx.inventoryMovement.create({
+            data: {
+              tenantId: this.tenantId(),
+              productId,
+              orderId,
+              type: 'restore',
+              quantity: qty,
+              stockAfter: next,
+              reason:
+                reason?.trim() ||
+                `Reverso por cancelación orden #${orderId}`,
+              createdAt: now,
+            },
+          });
+        }
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'cancelled',
+          cancelledAt: now,
+          cancelledReason: reason ?? null,
+          updatedAt: now,
+        },
+      });
     });
+
+    return this.getOrder(orderId);
+  }
+
+  /** Units to deduct from inventory for service lines with recipes. */
+  private async recipeQtyForServiceLines(
+    lines: Array<{ itemId: bigint | null; productId: bigint | null; quantity: number }>,
+  ) {
+    const consumeQty = new Map<string, number>();
+    const serviceItemIds = [
+      ...new Set(
+        lines
+          .filter((l) => l.itemId != null && l.productId == null)
+          .map((l) => l.itemId!.toString()),
+      ),
+    ].map((id) => BigInt(id));
+
+    if (serviceItemIds.length === 0) return consumeQty;
+
+    const services = await this.prisma.service.findMany({
+      where: {
+        itemId: { in: serviceItemIds },
+        item: { tenantId: this.tenantId() },
+      },
+      include: { consumables: true },
+    });
+    const byItemId = new Map(
+      services.map((s) => [s.itemId.toString(), s] as const),
+    );
+
+    for (const line of lines) {
+      if (line.itemId == null || line.productId != null) continue;
+      const service = byItemId.get(line.itemId.toString());
+      if (!service?.consumables.length) continue;
+      for (const c of service.consumables) {
+        const key = c.productId.toString();
+        const add = c.quantity * line.quantity;
+        consumeQty.set(key, (consumeQty.get(key) ?? 0) + add);
+      }
+    }
+    return consumeQty;
+  }
+
+  private async applyStockOut(
+    tx: Prisma.TransactionClient,
+    qtyByProduct: Map<string, number>,
+    meta: {
+      orderId: bigint;
+      type: 'sale' | 'consume';
+      reason: string;
+      now: Date;
+    },
+  ) {
+    for (const [productIdStr, qty] of qtyByProduct) {
+      if (qty <= 0) continue;
+      const productId = BigInt(productIdStr);
+      const product = await tx.product.findFirst({
+        where: { id: productId, item: { tenantId: this.tenantId() } },
+        include: { item: { select: { name: true } } },
+      });
+      if (!product) {
+        throw new BadRequestException(`Product ${productIdStr} not found`);
+      }
+      if (product.stock < qty) {
+        const kind =
+          meta.type === 'consume' ? 'insumos del servicio' : 'venta';
+        const unit = normalizeProductUnit(product.unit);
+        throw new BadRequestException(
+          `Stock insuficiente de «${product.item.name}» para ${kind} (hay ${formatStockQty(product.stock, unit)}, se necesitan ${formatStockQty(qty, unit)})`,
+        );
+      }
+      const next = product.stock - qty;
+      await tx.product.update({
+        where: { id: productId },
+        data: { stock: next, updatedAt: meta.now },
+      });
+      await tx.inventoryMovement.create({
+        data: {
+          tenantId: this.tenantId(),
+          productId,
+          orderId: meta.orderId,
+          type: meta.type,
+          quantity: -qty,
+          stockAfter: next,
+          reason: meta.reason,
+          createdAt: meta.now,
+        },
+      });
+    }
   }
 
   async reportSummary(from?: string, to?: string) {

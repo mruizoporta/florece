@@ -9,6 +9,7 @@ import { ApiError } from "@/lib/api";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLocale } from "@/components/LocaleProvider";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 
 function LoginForm() {
   const router = useRouter();
@@ -78,11 +79,8 @@ function LoginForm() {
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-5 py-16 sm:px-6 lg:flex-row lg:items-center lg:justify-center lg:gap-16 lg:px-8 lg:py-10">
         <div className="mb-8 w-full max-w-md text-center text-white lg:mb-0 lg:flex-1 lg:text-left">
-          <Link
-            href="/"
-            className="font-serif text-3xl font-semibold tracking-tight"
-          >
-            Florece
+          <Link href="/" className="inline-flex" aria-label="Florece">
+            <FloreceLogo tone="onDark" size="lg" />
           </Link>
           <p className="mt-5 font-serif text-3xl leading-tight font-medium md:text-4xl">
             {tr("login.panelTitle")}

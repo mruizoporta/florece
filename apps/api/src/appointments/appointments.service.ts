@@ -259,9 +259,17 @@ export class AppointmentsService {
       throw new BadRequestException('Slot not available');
     }
 
-    let type = await this.prisma.type.findFirst({
-      where: { id: BigInt(input.typeId), tenantId },
-    });
+    let type = input.typeId
+      ? await this.prisma.type.findFirst({
+          where: { id: BigInt(input.typeId), tenantId },
+        })
+      : null;
+    if (!type) {
+      const preferred = input.typeName ?? 'Web';
+      type = await this.prisma.type.findFirst({
+        where: { tenantId, name: preferred },
+      });
+    }
     if (!type) {
       type = await this.prisma.type.findFirst({
         where: { tenantId, name: 'Web' },

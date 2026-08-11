@@ -105,6 +105,12 @@ export class OrdersController {
     });
   }
 
+  @Get(':id/consumables')
+  @Roles('Admin', 'Cajero')
+  previewConsumables(@Param('id') id: string) {
+    return this.ordersService.previewConsumables(BigInt(id));
+  }
+
   @Get(':id')
   show(@Param('id') id: string) {
     return this.ordersService.getOrder(BigInt(id));
@@ -176,8 +182,27 @@ export class OrdersController {
 
   @Patch(':id/finalize')
   @Roles('Admin', 'Cajero')
-  finalize(@Param('id') id: string) {
-    return this.ordersService.finalize(BigInt(id));
+  finalize(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      consumables?: Array<{
+        product_id?: number;
+        productId?: number;
+        quantity: number;
+      }>;
+      consumables_reason?: string;
+      consumablesReason?: string;
+    },
+  ) {
+    const consumables = body.consumables?.map((row) => ({
+      productId: Number(row.product_id ?? row.productId),
+      quantity: Number(row.quantity),
+    }));
+    return this.ordersService.finalize(BigInt(id), {
+      consumables,
+      consumablesReason: body.consumables_reason ?? body.consumablesReason,
+    });
   }
 
   @Patch(':id/cancel')

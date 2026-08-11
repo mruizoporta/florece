@@ -37,7 +37,9 @@ Login: `/login` (código del salón + email + password).
 
 El demo incluye **Patrocinadores** (Presencia → Patrocinadores) y multi-sucursal. Son marcas/aliados que se muestran en el sitio público.
 
-**Piso del estilista** (`/s/demo/stylist`): María López anota servicios, ve hojas abiertas y su comisión del día. Usuario vinculado al empleado del equipo.
+**Piso del estilista** (`/s/demo/stylist`): María López anota servicios, ve insumos del servicio, hojas abiertas y su comisión del día. Usuario vinculado al empleado del equipo.
+
+**Inventario (Pro/Premium):** Catálogo → Productos con uso **Vitrina** o **Insumo** y unidad und/g/ml. Servicios con receta (solo insumos); al cobrar se descuentan (caja puede ajustar ± con motivo).
 
 **Usuarios del salón (staff):** el dueño (Admin) crea usuarios con permisos:
 - **Agenda / recepción** — citas y calendario

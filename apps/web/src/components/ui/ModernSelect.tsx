@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type ModernSelectOption = {
   value: string;
@@ -18,6 +19,8 @@ type ModernSelectProps = {
   disabled?: boolean;
 };
 
+type MenuPos = { top: number; left: number; width: number; maxHeight: number };
+
 export function ModernSelect({
   label,
   placeholder = "Seleccionar…",
@@ -28,13 +31,63 @@ export function ModernSelect({
   disabled,
 }: ModernSelectProps) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<MenuPos | null>(null);
+  const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const selected = options.find((o) => o.value === value);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setPos(null);
+      return;
+    }
+
+    function update() {
+      const el = buttonRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const gap = 8;
+      const spaceBelow = window.innerHeight - rect.bottom - gap - 12;
+      const spaceAbove = rect.top - gap - 12;
+      const preferBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove;
+      const maxHeight = Math.max(
+        120,
+        Math.min(256, preferBelow ? spaceBelow : spaceAbove),
+      );
+      const top = preferBelow
+        ? rect.bottom + gap
+        : Math.max(12, rect.top - gap - maxHeight);
+      setPos({
+        top,
+        left: rect.left,
+        width: rect.width,
+        maxHeight,
+      });
+    }
+
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -45,12 +98,84 @@ export function ModernSelect({
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [open]);
+
+  const menu =
+    mounted && open && pos
+      ? createPortal(
+          <ul
+            ref={menuRef}
+            id={listId}
+            role="listbox"
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+              maxHeight: pos.maxHeight,
+              zIndex: 80,
+            }}
+            className="overflow-auto rounded-2xl border border-brand-ink/10 bg-white p-1.5 shadow-lg shadow-brand-ink/15"
+          >
+            {options.map((opt) => {
+              const isActive = opt.value === value;
+              return (
+                <li key={opt.value} role="option" aria-selected={isActive}>
+                  <button
+                    type="button"
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                      isActive
+                        ? "bg-brand-primary/25 text-brand-ink"
+                        : "hover:bg-brand-warm"
+                    }`}
+                    onClick={() => {
+                      onChange(opt.value);
+                      setOpen(false);
+                    }}
+                  >
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                        isActive
+                          ? "bg-brand-primary text-brand-ink"
+                          : "bg-brand-mist text-brand-ink"
+                      }`}
+                    >
+                      {opt.label.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {opt.label}
+                      </span>
+                      {opt.description ? (
+                        <span className="block truncate text-xs text-brand-text-muted">
+                          {opt.description}
+                        </span>
+                      ) : null}
+                    </span>
+                    {isActive ? (
+                      <span className="text-xs font-semibold text-brand-primary-dark">
+                        ✓
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+            {options.length === 0 ? (
+              <li className="px-3 py-4 text-sm text-brand-text-muted">
+                Sin opciones
+              </li>
+            ) : null}
+          </ul>,
+          document.body,
+        )
+      : null;
 
   return (
     <div ref={rootRef} className="relative">
       {label ? <label className="label-field">{label}</label> : null}
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         aria-haspopup="listbox"
@@ -100,64 +225,7 @@ export function ModernSelect({
           />
         </svg>
       </button>
-
-      {open ? (
-        <ul
-          id={listId}
-          role="listbox"
-          className="absolute z-30 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-brand-ink/10 bg-white p-1.5 shadow-lg shadow-brand-ink/10"
-        >
-          {options.map((opt) => {
-            const isActive = opt.value === value;
-            return (
-              <li key={opt.value} role="option" aria-selected={isActive}>
-                <button
-                  type="button"
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
-                    isActive
-                      ? "bg-brand-primary/25 text-brand-ink"
-                      : "hover:bg-brand-warm"
-                  }`}
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                      isActive
-                        ? "bg-brand-primary text-brand-ink"
-                        : "bg-brand-mist text-brand-ink"
-                    }`}
-                  >
-                    {opt.label.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
-                      {opt.label}
-                    </span>
-                    {opt.description ? (
-                      <span className="block truncate text-xs text-brand-text-muted">
-                        {opt.description}
-                      </span>
-                    ) : null}
-                  </span>
-                  {isActive ? (
-                    <span className="text-xs font-semibold text-brand-primary-dark">
-                      ✓
-                    </span>
-                  ) : null}
-                </button>
-              </li>
-            );
-          })}
-          {options.length === 0 ? (
-            <li className="px-3 py-4 text-sm text-brand-text-muted">
-              Sin opciones
-            </li>
-          ) : null}
-        </ul>
-      ) : null}
+      {menu}
     </div>
   );
 }

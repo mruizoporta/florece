@@ -134,7 +134,7 @@ export default function AdminAppointmentCreatePage() {
       const payload = {
         name,
         phone: phone || null,
-        typeId: 1,
+        typeName: 'Local' as const,
         employeeId: employeeId!,
         date,
         time,

@@ -27,6 +27,9 @@ import {
 } from "@/lib/appointments-socket";
 import { salonTodayYmd } from "@/lib/dates";
 import { employeeImageUrl } from "@/lib/images";
+import { AppointmentWhatsAppActions } from "@/components/admin/AppointmentWhatsAppActions";
+import Link from "next/link";
+import { getMe } from "@/lib/auth";
 
 type StatusRow = { id: number; name: string; color?: string | null };
 
@@ -94,10 +97,17 @@ export default function AdminBoardPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [flashOpen, setFlashOpen] = useState(false);
   const [movingId, setMovingId] = useState<number | null>(null);
+  const [salonName, setSalonName] = useState<string | null>(null);
   const knownIdsRef = useRef<Set<number>>(new Set());
   const toastTimerRef = useRef<number | null>(null);
 
   const today = salonTodayYmd();
+
+  useEffect(() => {
+    getMe()
+      .then((me) => setSalonName(me?.tenant?.name ?? null))
+      .catch(() => setSalonName(null));
+  }, []);
 
   const statusByName = useMemo(() => {
     const map = new Map<string, number>();
@@ -358,9 +368,12 @@ export default function AdminBoardPage() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-brand-ink">
+                                <Link
+                                  href={`/s/${slug}/admin/appointments/${a.id}`}
+                                  className="truncate font-medium text-brand-ink hover:underline"
+                                >
                                   {a.name}
-                                </p>
+                                </Link>
                                 <p className="mt-0.5 text-xs font-semibold tabular-nums text-brand-ink/70">
                                   {formatTime(a.startTime)}
                                   {a.endTime
@@ -406,6 +419,14 @@ export default function AdminBoardPage() {
                                 ) : null}
                               </div>
                             </div>
+
+                            <AppointmentWhatsAppActions
+                              appointment={a}
+                              salonName={salonName}
+                              locale={locale === "en" ? "en" : "es"}
+                              variant="compact"
+                              className="mt-2.5"
+                            />
 
                             <div className="mt-3 flex flex-wrap gap-1.5">
                               {(() => {

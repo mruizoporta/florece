@@ -533,6 +533,9 @@ async function ensureProduct(
   description: string,
   now: Date,
   image = 'placeholder.webp',
+  minStock = 5,
+  usage: 'retail' | 'internal' | 'both' = 'retail',
+  unit: 'unit' | 'g' | 'ml' = 'unit',
 ) {
   let existing = await prisma.item.findUnique({
     where: { tenantId_slug: { tenantId, slug } },
@@ -557,7 +560,19 @@ async function ensureProduct(
         data: { image, updatedAt: now },
       });
     }
-    if (existing.product) return existing.product;
+    if (existing.product) {
+      const needsMeta =
+        existing.product.minStock !== minStock ||
+        existing.product.usage !== usage ||
+        existing.product.unit !== unit;
+      if (needsMeta) {
+        return prisma.product.update({
+          where: { id: existing.product.id },
+          data: { minStock, usage, unit, updatedAt: now },
+        });
+      }
+      return existing.product;
+    }
   }
 
   let item = existing;
@@ -579,12 +594,51 @@ async function ensureProduct(
     });
   }
 
-  if (item.product) return item.product;
+  if (item.product) {
+    return prisma.product.update({
+      where: { id: item.product.id },
+      data: { usage, unit, minStock, updatedAt: now },
+    });
+  }
 
   return prisma.product.create({
     data: {
       itemId: item.id,
       stock,
+      minStock,
+      usage,
+      unit,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+}
+
+async function ensureServiceConsumable(
+  tenantId: bigint,
+  serviceId: bigint,
+  productId: bigint,
+  quantity: number,
+  now: Date,
+) {
+  const existing = await prisma.serviceConsumable.findUnique({
+    where: { serviceId_productId: { serviceId, productId } },
+  });
+  if (existing) {
+    if (existing.quantity !== quantity) {
+      return prisma.serviceConsumable.update({
+        where: { id: existing.id },
+        data: { quantity, updatedAt: now },
+      });
+    }
+    return existing;
+  }
+  return prisma.serviceConsumable.create({
+    data: {
+      tenantId,
+      serviceId,
+      productId,
+      quantity,
       createdAt: now,
       updatedAt: now,
     },
@@ -891,27 +945,33 @@ async function enrichDemoTenant(
     '/demo/services/keratina.jpg',
   );
 
-  await ensureProduct(
+  const shampoo = await ensureProduct(
     tenantId,
     'tratamientos',
     'Shampoo reparador',
     'shampoo-reparador',
     420,
     18,
-    'Uso diario.',
+    'Uso diario — vitrina.',
     now,
     '/demo/products/shampoo.jpg',
+    5,
+    'retail',
+    'unit',
   );
-  await ensureProduct(
+  const aceite = await ensureProduct(
     tenantId,
     'tratamientos',
     'Aceite de argán',
     'aceite-argan',
     380,
     12,
-    'Brillo y nutrición.',
+    'Brillo y nutrición — vitrina.',
     now,
     '/demo/products/aceite.jpg',
+    5,
+    'retail',
+    'unit',
   );
   const serum = await ensureProduct(
     tenantId,
@@ -919,11 +979,113 @@ async function enrichDemoTenant(
     'Serum protector',
     'serum-protector',
     290,
-    25,
-    'Protección térmica.',
+    4,
+    'Protección térmica — vitrina.',
     now,
     '/demo/products/aceite.jpg',
+    5,
+    'retail',
+    'unit',
   );
+
+  // Insumos de uso interno (gramos / ml) — no se venden en caja
+  const tinte = await ensureProduct(
+    tenantId,
+    'color',
+    'Tinte profesional castaño',
+    'tinte-profesional-castano',
+    0,
+    500,
+    'Insumo de piso. Stock en gramos.',
+    now,
+    '/demo/products/aceite.jpg',
+    80,
+    'internal',
+    'g',
+  );
+  const oxidante = await ensureProduct(
+    tenantId,
+    'color',
+    'Oxidante 20 vol',
+    'oxidante-20-vol',
+    0,
+    1000,
+    'Insumo de piso. Stock en ml.',
+    now,
+    '/demo/products/aceite.jpg',
+    150,
+    'internal',
+    'ml',
+  );
+  const keratinaInsumo = await ensureProduct(
+    tenantId,
+    'tratamientos',
+    'Keratina líquida (uso interno)',
+    'keratina-liquida-interna',
+    0,
+    400,
+    'Insumo para tratamientos. Stock en ml.',
+    now,
+    '/demo/products/shampoo.jpg',
+    60,
+    'internal',
+    'ml',
+  );
+  const serumPiso = await ensureProduct(
+    tenantId,
+    'tratamientos',
+    'Serum térmico (piso)',
+    'serum-termico-piso',
+    0,
+    200,
+    'Insumo de brushing. Stock en ml.',
+    now,
+    '/demo/products/aceite.jpg',
+    40,
+    'internal',
+    'ml',
+  );
+
+  // Limpiar recetas viejas que apuntaban a retail y armar con insumos
+  for (const svc of [keratina, balayage, brush]) {
+    if (!svc) continue;
+    await prisma.serviceConsumable.deleteMany({
+      where: { tenantId, serviceId: svc.id },
+    });
+  }
+  if (keratina && keratinaInsumo) {
+    await ensureServiceConsumable(
+      tenantId,
+      keratina.id,
+      keratinaInsumo.id,
+      40,
+      now,
+    );
+  }
+  if (keratina && serumPiso) {
+    await ensureServiceConsumable(
+      tenantId,
+      keratina.id,
+      serumPiso.id,
+      10,
+      now,
+    );
+  }
+  if (balayage && tinte) {
+    await ensureServiceConsumable(tenantId, balayage.id, tinte.id, 35, now);
+  }
+  if (balayage && oxidante) {
+    await ensureServiceConsumable(
+      tenantId,
+      balayage.id,
+      oxidante.id,
+      50,
+      now,
+    );
+  }
+  if (brush && serumPiso) {
+    await ensureServiceConsumable(tenantId, brush.id, serumPiso.id, 8, now);
+  }
 
   await ensureStaffUser(
     tenantId,
@@ -1384,7 +1546,14 @@ async function enrichDemoTenant(
   }
 
   await prisma.order.updateMany({
-    where: { tenantId, status: 'finalized' },
+    where: {
+      tenantId,
+      status: 'finalized',
+      OR: [
+        { name: { in: ['Lucía Mendoza', 'Venta mostrador'] } },
+        { finalizedAt: null },
+      ],
+    },
     data: { finalizedAt: todayAt(13, 0) },
   });
 
@@ -1438,6 +1607,462 @@ async function enrichDemoTenant(
       }
     }
   }
+
+  await enrichDemoOpsData(tenantId, {
+    now,
+    passwordHash,
+    mariaId: maria.id,
+    carlosId: carlos.id,
+    sofiaId: sofia.id,
+    corteId: corte?.id ?? null,
+    fadeId: fade?.id ?? null,
+    brushId: brush?.id ?? null,
+    balayageId: balayage?.id ?? null,
+    shampooId: shampoo?.id ?? null,
+    serumId: serum?.id ?? null,
+    customerIds: [c1.id, c2.id, c3.id],
+  });
+}
+
+type DemoOpsCtx = {
+  now: Date;
+  passwordHash: string;
+  mariaId: bigint;
+  carlosId: bigint;
+  sofiaId: bigint;
+  corteId: bigint | null;
+  fadeId: bigint | null;
+  brushId: bigint | null;
+  balayageId: bigint | null;
+  shampooId: bigint | null;
+  serumId: bigint | null;
+  customerIds: bigint[];
+};
+
+function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+function atDayOffset(offsetDays: number, hour: number, minute: number): Date {
+  const todayYmd = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Managua',
+  });
+  const ymd = addDaysYmd(todayYmd, offsetDays);
+  const hh = String(hour).padStart(2, '0');
+  const mm = String(minute).padStart(2, '0');
+  return new Date(`${ymd}T${hh}:${mm}:00-06:00`);
+}
+
+async function ensureExpenseCategories(tenantId: bigint, now: Date) {
+  const rows = [
+    { name: 'Alquiler', slug: 'alquiler' },
+    { name: 'Insumos', slug: 'insumos' },
+    { name: 'Servicios', slug: 'servicios' },
+    { name: 'Marketing', slug: 'marketing' },
+    { name: 'Sueldos', slug: 'sueldos' },
+    { name: 'Otros', slug: 'otros' },
+  ];
+  for (const row of rows) {
+    await prisma.expenseCategory.upsert({
+      where: { tenantId_slug: { tenantId, slug: row.slug } },
+      create: {
+        tenantId,
+        name: row.name,
+        slug: row.slug,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      update: { active: true, name: row.name, updatedAt: now },
+    });
+  }
+}
+
+/** Fills empty demo modules: expenses, cash, Instagram, calendar history, stock moves. */
+async function enrichDemoOpsData(tenantId: bigint, ctx: DemoOpsCtx) {
+  const { now } = ctx;
+  const admin = await prisma.user.findFirst({
+    where: { tenantId, email: DEMO_ADMIN_EMAIL },
+  });
+  if (!admin) return;
+
+  await ensureExpenseCategories(tenantId, now);
+
+  const cats = await prisma.expenseCategory.findMany({ where: { tenantId } });
+  const bySlug = new Map(cats.map((c) => [c.slug, c]));
+
+  const expenseCount = await prisma.expense.count({ where: { tenantId } });
+  if (expenseCount === 0) {
+    const expenseRows: Array<{
+      slug: string;
+      amount: number;
+      method: string;
+      offset: number;
+      note: string;
+    }> = [
+      {
+        slug: 'alquiler',
+        amount: 12000,
+        method: 'transfer',
+        offset: -3,
+        note: 'Alquiler Plaza Inter — mes demo',
+      },
+      {
+        slug: 'insumos',
+        amount: 2850,
+        method: 'cash',
+        offset: -2,
+        note: 'Compra coloración y oxidante',
+      },
+      {
+        slug: 'servicios',
+        amount: 1600,
+        method: 'transfer',
+        offset: -5,
+        note: 'Energía / agua',
+      },
+      {
+        slug: 'marketing',
+        amount: 900,
+        method: 'card',
+        offset: -1,
+        note: 'Boost Instagram',
+      },
+      {
+        slug: 'otros',
+        amount: 450,
+        method: 'cash',
+        offset: 0,
+        note: 'Café y snacks para clientas',
+      },
+    ];
+    for (const row of expenseRows) {
+      const cat = bySlug.get(row.slug);
+      if (!cat) continue;
+      await prisma.expense.create({
+        data: {
+          tenantId,
+          categoryId: cat.id,
+          amount: new Prisma.Decimal(row.amount),
+          currency: 'NIO',
+          method: row.method,
+          spentAt: atDayOffset(row.offset, 10, 30),
+          note: row.note,
+          recordedById: admin.id,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+    }
+  }
+
+  const cashCount = await prisma.cashSession.count({ where: { tenantId } });
+  if (cashCount === 0) {
+    await prisma.cashSession.create({
+      data: {
+        tenantId,
+        status: 'closed',
+        openedAt: atDayOffset(-1, 8, 45),
+        closedAt: atDayOffset(-1, 18, 10),
+        openedById: admin.id,
+        closedById: admin.id,
+        openingFloat: new Prisma.Decimal(1500),
+        expectedCash: new Prisma.Decimal(4200),
+        countedCash: new Prisma.Decimal(4180),
+        difference: new Prisma.Decimal(-20),
+        note: 'Cierre demo día anterior',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.cashSession.create({
+      data: {
+        tenantId,
+        status: 'open',
+        openedAt: todayAt(8, 50),
+        openedById: admin.id,
+        openingFloat: new Prisma.Decimal(2000),
+        note: 'Caja abierta hoy (demo)',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+  } else {
+    const open = await prisma.cashSession.findFirst({
+      where: { tenantId, status: 'open' },
+    });
+    if (!open) {
+      await prisma.cashSession.create({
+        data: {
+          tenantId,
+          status: 'open',
+          openedAt: todayAt(8, 50),
+          openedById: admin.id,
+          openingFloat: new Prisma.Decimal(2000),
+          note: 'Caja abierta hoy (demo)',
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+    }
+  }
+
+  const igCount = await prisma.instagramFeed.count({
+    where: { tenantId, deletedAt: null },
+  });
+  if (igCount === 0) {
+    const cards = [
+      {
+        title: 'Color balayage',
+        href: 'https://www.instagram.com/florece.app',
+      },
+      {
+        title: 'Fade de temporada',
+        href: 'https://www.instagram.com/florece.app',
+      },
+    ];
+    for (const card of cards) {
+      const html = `<a href="${card.href}" target="_blank" rel="noopener noreferrer" style="display:block;padding:1.25rem;border-radius:1rem;background:linear-gradient(145deg,#f7f3ef,#efe6da);border:1px solid rgba(22,20,18,.08);text-decoration:none;color:#161412;font-family:system-ui,sans-serif"><p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.5">Instagram</p><p style="margin:.5rem 0 0;font-size:1.15rem;font-weight:600">${card.title}</p><p style="margin:.35rem 0 0;font-size:.85rem;opacity:.65">@florece.app · Ver publicación</p></a>`;
+      await prisma.instagramFeed.create({
+        data: {
+          content: html,
+          tenantId,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+    }
+  }
+
+  // Inventory history (receive + adjustment) so Catálogo → movimientos no esté vacío
+  const moveCount = await prisma.inventoryMovement.count({ where: { tenantId } });
+  if (moveCount === 0) {
+    const products = await prisma.product.findMany({
+      where: { item: { tenantId } },
+      take: 4,
+      orderBy: { id: 'asc' },
+    });
+    for (const p of products) {
+      await prisma.inventoryMovement.create({
+        data: {
+          tenantId,
+          productId: p.id,
+          userId: admin.id,
+          type: 'receive',
+          quantity: Math.max(5, Math.floor(p.stock * 0.3) || 5),
+          stockAfter: p.stock,
+          reason: 'Recepción inicial demo',
+          createdAt: atDayOffset(-7, 11, 0),
+        },
+      });
+      if (p.stock > 0) {
+        await prisma.inventoryMovement.create({
+          data: {
+            tenantId,
+            productId: p.id,
+            userId: admin.id,
+            type: 'adjustment',
+            quantity: -1,
+            stockAfter: Math.max(0, p.stock - 1),
+            reason: 'Ajuste inventario demo',
+            createdAt: atDayOffset(-2, 16, 0),
+          },
+        });
+      }
+    }
+  }
+
+  // Calendar: citas de días pasados / mañana (además de las de hoy)
+  const pending = await prisma.status.findFirst({
+    where: { tenantId, name: 'Pendiente' },
+  });
+  const concluded = await prisma.status.findFirst({
+    where: { tenantId, name: 'Concluido' },
+  });
+  const localType = await prisma.type.findFirst({
+    where: { tenantId, name: 'Local' },
+  });
+  const webType = await prisma.type.findFirst({
+    where: { tenantId, name: 'Web' },
+  });
+
+  if (pending && concluded && localType && webType && ctx.customerIds.length >= 3) {
+    const histPhones = ['88885501', '88885502', '88885503', '88885504', '88885505'];
+    const { start: dayStart, end: dayEnd } = demoDayBounds();
+    const oldHist = await prisma.appointment.findMany({
+      where: {
+        tenantId,
+        phone: { in: histPhones },
+        OR: [
+          { startTime: { lt: dayStart } },
+          { startTime: { gt: dayEnd } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (oldHist.length > 0) {
+      const ids = oldHist.map((a) => a.id);
+      await prisma.appointmentService.deleteMany({
+        where: { appointmentId: { in: ids } },
+      });
+      await prisma.appointment.deleteMany({ where: { id: { in: ids } } });
+    }
+
+    const histSlots: Array<{
+      customerId: bigint;
+      employeeId: bigint;
+      statusId: bigint;
+      typeId: bigint;
+      name: string;
+      phone: string;
+      start: Date;
+      minutes: number;
+      serviceId: bigint | null;
+    }> = [
+      {
+        customerId: ctx.customerIds[0],
+        employeeId: ctx.mariaId,
+        statusId: concluded.id,
+        typeId: localType.id,
+        name: 'Carla Núñez',
+        phone: histPhones[0],
+        start: atDayOffset(-5, 10, 0),
+        minutes: 45,
+        serviceId: ctx.corteId,
+      },
+      {
+        customerId: ctx.customerIds[1],
+        employeeId: ctx.carlosId,
+        statusId: concluded.id,
+        typeId: webType.id,
+        name: 'Pedro Salinas',
+        phone: histPhones[1],
+        start: atDayOffset(-3, 11, 30),
+        minutes: 40,
+        serviceId: ctx.fadeId,
+      },
+      {
+        customerId: ctx.customerIds[2],
+        employeeId: ctx.sofiaId,
+        statusId: concluded.id,
+        typeId: localType.id,
+        name: 'Andrea López',
+        phone: histPhones[2],
+        start: atDayOffset(-1, 15, 0),
+        minutes: 60,
+        serviceId: ctx.brushId,
+      },
+      {
+        customerId: ctx.customerIds[0],
+        employeeId: ctx.mariaId,
+        statusId: pending.id,
+        typeId: webType.id,
+        name: 'Mónica Reyes',
+        phone: histPhones[3],
+        start: atDayOffset(1, 9, 30),
+        minutes: 150,
+        serviceId: ctx.balayageId,
+      },
+      {
+        customerId: ctx.customerIds[1],
+        employeeId: ctx.carlosId,
+        statusId: pending.id,
+        typeId: webType.id,
+        name: 'José Amador',
+        phone: histPhones[4],
+        start: atDayOffset(2, 12, 0),
+        minutes: 40,
+        serviceId: ctx.fadeId,
+      },
+    ];
+
+    for (const slot of histSlots) {
+      const end = new Date(slot.start.getTime() + slot.minutes * 60_000);
+      const appointment = await prisma.appointment.create({
+        data: {
+          customerId: slot.customerId,
+          employeeId: slot.employeeId,
+          statusId: slot.statusId,
+          typeId: slot.typeId,
+          name: slot.name,
+          phone: slot.phone,
+          startTime: slot.start,
+          endTime: end,
+          tenantId,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+      if (slot.serviceId) {
+        await prisma.appointmentService.create({
+          data: {
+            appointmentId: appointment.id,
+            serviceId: slot.serviceId,
+            createdAt: now,
+            updatedAt: now,
+          },
+        });
+      }
+    }
+  }
+
+  // Una cita Concluido hoy para el tablero
+  if (concluded && localType && ctx.customerIds[2] && ctx.sofiaId) {
+    const { start: dayStart, end: dayEnd } = demoDayBounds();
+    const hasConcluded = await prisma.appointment.findFirst({
+      where: {
+        tenantId,
+        statusId: concluded.id,
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+    });
+    if (!hasConcluded) {
+      const start = todayAt(9, 0);
+      const appt = await prisma.appointment.create({
+        data: {
+          customerId: ctx.customerIds[2],
+          employeeId: ctx.sofiaId,
+          statusId: concluded.id,
+          typeId: localType.id,
+          name: 'Rosa Medina',
+          phone: '88886666',
+          startTime: start,
+          endTime: new Date(start.getTime() + 45 * 60_000),
+          tenantId,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+      if (ctx.brushId) {
+        await prisma.appointmentService.create({
+          data: {
+            appointmentId: appt.id,
+            serviceId: ctx.brushId,
+            createdAt: now,
+            updatedAt: now,
+          },
+        });
+      }
+    }
+  }
+
+  // Extra customers for Clientes list
+  await ensureNamedCustomer(
+    tenantId,
+    'Rosa Medina',
+    'rosa@demo.florece.app',
+    ctx.passwordHash,
+    now,
+  );
+  await ensureNamedCustomer(
+    tenantId,
+    'Carla Núñez',
+    'carla@demo.florece.app',
+    ctx.passwordHash,
+    now,
+  );
 }
 
 main()

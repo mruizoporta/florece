@@ -21,7 +21,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { canAccessSalonAdmin, isStylist } from "@florece/shared";
+import { canAccessSalonAdmin, isStylist, formatStockQty } from "@florece/shared";
 import { api } from "@/lib/api";
 import { getMe, logout, type MeResponse } from "@/lib/auth";
 import type { Appointment, Order } from "@/lib/types";
@@ -29,12 +29,19 @@ import { ModernSelect } from "@/components/ui/ModernSelect";
 import { useSalonMoney } from "@/components/admin/SalonMoneyProvider";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLocale } from "@/components/LocaleProvider";
+import { FloreceLogo } from "@/components/brand/FloreceLogo";
 import { salonTodayYmd } from "@/lib/dates";
 import type { Locale } from "@/lib/i18n";
 
 type ServiceRow = {
   id: number;
   durationTime?: number;
+  consumables?: Array<{
+    productId: number;
+    quantity: number;
+    productName?: string;
+    unit?: string;
+  }>;
   item: { id: number; name: string; price: number };
 };
 
@@ -206,6 +213,13 @@ export default function StylistFloorPage() {
       })),
     [services, formatMoney],
   );
+
+  const selectedService = useMemo(
+    () => services.find((s) => String(s.item.id) === serviceKey) ?? null,
+    [services, serviceKey],
+  );
+
+  const selectedConsumables = selectedService?.consumables ?? [];
 
   const q = normalize(query);
 
@@ -394,7 +408,8 @@ export default function StylistFloorPage() {
               {initial}
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold tracking-[0.18em] text-brand-primary-dark uppercase">
+              <p className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.18em] text-brand-primary-dark uppercase">
+                <FloreceLogo variant="mark" tone="gold" size="sm" className="!inline-flex" />
                 {tr("stylist.floor")}
               </p>
               <h1 className="truncate font-serif text-[1.45rem] leading-tight font-semibold tracking-tight">
@@ -741,6 +756,28 @@ export default function StylistFloorPage() {
                   onChange={setServiceKey}
                   required
                 />
+                {selectedConsumables.length > 0 ? (
+                  <div className="mt-3 rounded-2xl bg-brand-warm/70 px-3.5 py-3">
+                    <p className="text-[11px] font-semibold tracking-wide text-brand-ink/55 uppercase">
+                      {tr("stylist.consumablesTitle")}
+                    </p>
+                    <ul className="mt-1.5 space-y-1 text-sm text-brand-ink">
+                      {selectedConsumables.map((c) => (
+                        <li key={c.productId}>
+                          {c.productName ?? `Producto #${c.productId}`}
+                          <span className="text-brand-text-muted">
+                            {" "}
+                            ·{" "}
+                            {formatStockQty(c.quantity, c.unit ?? "unit")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-brand-text-muted">
+                      {tr("stylist.consumablesHint")}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <button
