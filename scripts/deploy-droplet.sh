@@ -71,11 +71,23 @@ NEXT_PUBLIC_WS_URL=${PUBLIC_URL}
 NEXT_PUBLIC_MARKETING_WHATSAPP_URL=https://wa.me/50500000000
 NEXT_PUBLIC_MARKETING_INSTAGRAM_URL=https://www.instagram.com/florece.app
 NEXT_PUBLIC_MARKETING_FACEBOOK_URL=https://www.facebook.com/floreceapp
+SUPPORTFLOW_URL=http://127.0.0.1:4110/api
+SUPPORTFLOW_API_KEY=sf_live_5a100000000000000000000000000001
 ENVEOF
   chmod 600 "${REMOTE_DIR}/.env"
   echo "Created ${REMOTE_DIR}/.env"
 else
   echo "Keeping existing ${REMOTE_DIR}/.env"
+fi
+
+# SupportFlow en el mismo Droplet (API :4110). Producto Salón.
+if grep -q '^SUPPORTFLOW_URL=' "${REMOTE_DIR}/.env"; then
+  sed -i 's|^SUPPORTFLOW_URL=.*|SUPPORTFLOW_URL=http://127.0.0.1:4110/api|' "${REMOTE_DIR}/.env"
+else
+  echo 'SUPPORTFLOW_URL=http://127.0.0.1:4110/api' >> "${REMOTE_DIR}/.env"
+fi
+if ! grep -q '^SUPPORTFLOW_API_KEY=' "${REMOTE_DIR}/.env"; then
+  echo 'SUPPORTFLOW_API_KEY=sf_live_5a100000000000000000000000000001' >> "${REMOTE_DIR}/.env"
 fi
 EOF
 
@@ -110,6 +122,8 @@ if command -v psql >/dev/null 2>&1; then
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_accounting/migration.sql || true
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_employee_pay/migration.sql || true
   sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_stylist_link/migration.sql || true
+  sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_inventory/migration.sql || true
+  sudo -u postgres psql -d salon_saas -v ON_ERROR_STOP=0 -f ${REMOTE_DIR}/apps/api/prisma/migrations/20260810_service_consumables/migration.sql || true
 fi
 
 npm run prisma:seed -w @florece/api || echo "Seed warning (non-fatal)"

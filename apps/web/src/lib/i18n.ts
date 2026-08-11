@@ -8,7 +8,7 @@ const strings = {
     "hero.eyebrow": "Software para salones de belleza",
     "hero.title": "Tu salón, organizado con claridad",
     "hero.subtitle":
-      "Agenda, equipo, caja, piso del estilista y catálogo en un solo lugar. Florece está diseñado para salones que quieren verse profesionales desde el primer día.",
+      "Agenda, caja, inventario, piso del estilista y catálogo en un solo lugar. Florece está diseñado para salones que quieren verse profesionales desde el primer día.",
     "hero.cta.demo": "Explorar demo",
     "hero.cta.register": "Crear mi salón",
     "booking.title": "Agendar cita",
@@ -231,7 +231,7 @@ const strings = {
     "billing.perMonth": "/mes",
     "landing.plansTitle": "Planes en córdobas",
     "landing.plansSubtitle":
-      "Precios claros para Nicaragua. Activación por pago manual — sin sorpresas de pasarela.",
+      "Precios claros para Nicaragua. Pro suma POS, inventario e insumos por servicio. Activación por pago manual.",
     "landing.startTrial": "Empezar {days} días",
     "upgrade.title": "Tu plan no incluye este módulo",
     "upgrade.body":
@@ -246,6 +246,26 @@ const strings = {
     "assistant.whatsapp": "Hablar por WhatsApp",
     "assistant.openGuide": "Ver en el manual",
     "assistant.openPanel": "Abrir en el panel",
+    "assistant.ticketOpen": "Abrir ticket de soporte",
+    "assistant.ticketTitle": "Ticket de soporte",
+    "assistant.ticketSubtitle": "Llega a nuestro equipo",
+    "assistant.ticketHintPublic":
+      "Completá tus datos. Te respondemos por correo.",
+    "assistant.ticketHintAuth":
+      "El ticket llega con tu usuario y salón. Te respondemos por correo.",
+    "assistant.ticketName": "Nombre",
+    "assistant.ticketEmail": "Correo",
+    "assistant.ticketSubject": "Asunto",
+    "assistant.ticketBody": "Descripción",
+    "assistant.ticketSend": "Crear ticket",
+    "assistant.ticketSending": "Enviando…",
+    "assistant.ticketBack": "Volver",
+    "assistant.ticketOk": "Ticket #{num} creado. Nuestro equipo lo verá pronto.",
+    "assistant.ticketOkGeneric":
+      "Ticket creado. Nuestro equipo te responderá pronto.",
+    "assistant.ticketError": "No se pudo crear el ticket.",
+    "assistant.supportUnavailable":
+      "Soporte por ticket no está disponible ahora. Usá WhatsApp.",
     "login.panelTitle": "Entrá al panel de tu salón",
     "login.panelHint":
       "Acceso para dueños y staff. Las citas públicas del sitio no requieren esta cuenta.",
@@ -304,6 +324,9 @@ const strings = {
     "stylist.changeClient": "Cambiar clienta",
     "stylist.serviceYouDid": "Servicio que hiciste",
     "stylist.pickService": "Elegir servicio",
+    "stylist.consumablesTitle": "Insumos de este servicio",
+    "stylist.consumablesHint":
+      "Pedilos en depósito / recepción. Se descuentan al cobrar la hoja.",
     "stylist.saving": "Guardando…",
     "stylist.openAndLog": "Abrir hoja y anotar",
     "stylist.logOnSheet": "Anotar en esta hoja",
@@ -326,7 +349,7 @@ const strings = {
     "hero.eyebrow": "Beauty salon software",
     "hero.title": "Your salon, organized with clarity",
     "hero.subtitle":
-      "Scheduling, team, POS, stylist floor, and catalog in one place. Florece is built for salons that want to look professional from day one.",
+      "Scheduling, POS, inventory, stylist floor, and catalog in one place. Florece is built for salons that want to look professional from day one.",
     "hero.cta.demo": "Explore demo",
     "hero.cta.register": "Create my salon",
     "booking.title": "Book appointment",
@@ -549,7 +572,7 @@ const strings = {
     "billing.perMonth": "/mo",
     "landing.plansTitle": "Plans in córdobas",
     "landing.plansSubtitle":
-      "Clear pricing for Nicaragua. Activated by manual payment — no payment-gateway surprises.",
+      "Clear pricing for Nicaragua. Pro adds POS, inventory, and service consumables. Manual payment activation.",
     "landing.startTrial": "Start {days}-day trial",
     "upgrade.title": "Your plan doesn’t include this module",
     "upgrade.body":
@@ -564,6 +587,25 @@ const strings = {
     "assistant.whatsapp": "Chat on WhatsApp",
     "assistant.openGuide": "Open in guide",
     "assistant.openPanel": "Open in panel",
+    "assistant.ticketOpen": "Open support ticket",
+    "assistant.ticketTitle": "Support ticket",
+    "assistant.ticketSubtitle": "Goes to our team",
+    "assistant.ticketHintPublic":
+      "Fill in your details. We’ll reply by email.",
+    "assistant.ticketHintAuth":
+      "The ticket includes your user and salon. We’ll reply by email.",
+    "assistant.ticketName": "Name",
+    "assistant.ticketEmail": "Email",
+    "assistant.ticketSubject": "Subject",
+    "assistant.ticketBody": "Description",
+    "assistant.ticketSend": "Create ticket",
+    "assistant.ticketSending": "Sending…",
+    "assistant.ticketBack": "Back",
+    "assistant.ticketOk": "Ticket #{num} created. Our team will see it soon.",
+    "assistant.ticketOkGeneric": "Ticket created. Our team will reply soon.",
+    "assistant.ticketError": "Could not create the ticket.",
+    "assistant.supportUnavailable":
+      "Ticket support is unavailable right now. Use WhatsApp.",
     "login.panelTitle": "Sign in to your salon panel",
     "login.panelHint":
       "For owners and staff. Public site bookings do not need this account.",
@@ -622,6 +664,9 @@ const strings = {
     "stylist.changeClient": "Change client",
     "stylist.serviceYouDid": "Service you did",
     "stylist.pickService": "Choose service",
+    "stylist.consumablesTitle": "Supplies for this service",
+    "stylist.consumablesHint":
+      "Pick them up from stock / front desk. Deducted when the sheet is paid.",
     "stylist.saving": "Saving…",
     "stylist.openAndLog": "Open sheet & log",
     "stylist.logOnSheet": "Log on this sheet",

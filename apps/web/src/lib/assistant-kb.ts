@@ -109,8 +109,31 @@ const LANDING_ENTRIES: AssistantEntry[] = [
       en: "Does it work for barbershops and spas?",
     },
     answer: {
-      es: "Sí. Está pensado para salones, barberías, spas y studios de belleza en Nicaragua: citas, catálogo, POS, piso del estilista con comisiones y presencia web.",
-      en: "Yes. Built for salons, barbershops, spas, and beauty studios in Nicaragua: appointments, catalog, POS, stylist floor with commissions, and web presence.",
+      es: "Sí. Está pensado para salones, barberías, spas y studios de belleza en Nicaragua: citas, catálogo, POS, inventario, insumos por servicio, piso del estilista con comisiones y presencia web.",
+      en: "Yes. Built for salons, barbershops, spas, and beauty studios in Nicaragua: appointments, catalog, POS, inventory, service consumables, stylist floor with commissions, and web presence.",
+    },
+  },
+  {
+    id: "landing-inventory",
+    contexts: ["landing", "admin"],
+    keywords: [
+      "inventario",
+      "stock",
+      "insumo",
+      "insumos",
+      "producto",
+      "receta",
+      "merma",
+      "robos",
+      "consumo",
+    ],
+    title: {
+      es: "¿Hay inventario e insumos?",
+      en: "Is there inventory and consumables?",
+    },
+    answer: {
+      es: "Sí en Pro y Premium. Inventario retail (stock, mínimos, ajustes) e insumos por servicio: definís la receta, al cobrar se descuenta; caja puede ajustar ± con motivo (pelo largo, etc.). El estilista ve qué usar en el piso.",
+      en: "Yes on Pro and Premium. Retail inventory (stock, mins, adjustments) and service consumables: set the recipe, checkout deducts it; POS can adjust ± with a reason (long hair, etc.). Stylists see what to use on the floor.",
     },
   },
   {
@@ -136,8 +159,8 @@ const LANDING_ENTRIES: AssistantEntry[] = [
       en: "Is there a stylist floor?",
     },
     answer: {
-      es: "Sí. Con el rol Estilista entran a un piso móvil: buscan la hoja de la clienta, anotan el servicio y ven Mi día (comisión pendiente y confirmada). Caja cierra el ticket al cobrar. En la demo: slug demo, maria@demo.florece.app / demo1234 → /s/demo/stylist.",
-      en: "Yes. With the Stylist role they get a mobile floor: find the client sheet, log the service, and see My day (pending and confirmed commission). POS closes the ticket when charging. Demo: slug demo, maria@demo.florece.app / demo1234 → /s/demo/stylist.",
+      es: "Sí. Con el rol Estilista entran a un piso móvil: buscan la hoja de la clienta, ven los insumos del servicio, anotan y ven Mi día (comisión pendiente y confirmada). Caja cierra el ticket al cobrar. En la demo: slug demo, maria@demo.florece.app / demo1234 → /s/demo/stylist.",
+      en: "Yes. With the Stylist role they get a mobile floor: find the client sheet, see service supplies, log the service, and see My day (pending and confirmed commission). POS closes the ticket when charging. Demo: slug demo, maria@demo.florece.app / demo1234 → /s/demo/stylist.",
     },
   },
   {
@@ -156,8 +179,29 @@ const LANDING_ENTRIES: AssistantEntry[] = [
       en: "Can I message you on WhatsApp?",
     },
     answer: {
-      es: "Sí. Usá el botón de WhatsApp para activar, renovar o consultar planes. El equipo de Florece te responde.",
-      en: "Yes. Use the WhatsApp button to activate, renew, or ask about plans. The Florece team will reply.",
+      es: "Sí. Usá WhatsApp para activar o renovar, o abrí un ticket desde el asistente (botón de ayuda): llega a nuestro equipo y te respondemos por correo.",
+      en: "Yes. Use WhatsApp to activate or renew, or open a ticket from the help assistant: it reaches our team and we reply by email.",
+    },
+  },
+  {
+    id: "landing-ticket",
+    contexts: ["landing", "admin"],
+    keywords: [
+      "ticket",
+      "soporte",
+      "ayuda",
+      "support",
+      "reportar",
+      "problema",
+      "bug",
+    ],
+    title: {
+      es: "¿Cómo abro un ticket de soporte?",
+      en: "How do I open a support ticket?",
+    },
+    answer: {
+      es: "En el asistente (ícono de ayuda) tocá «Abrir ticket de soporte». En la web pública pedimos nombre y correo; dentro del panel va con tu usuario y salón.",
+      en: "In the assistant (help icon) tap “Open support ticket.” On the public site we ask for name and email; in the admin panel it includes your user and salon.",
     },
   },
   {
@@ -202,8 +246,8 @@ const LANDING_ENTRIES: AssistantEntry[] = [
       en: "What do the plans include?",
     },
     answer: {
-      es: "Básico: agenda, catálogo y clientes. Pro: + POS, piso del estilista y comisiones, contabilidad, sitio (secciones/imágenes) e Instagram. Premium: + patrocinadores, límites ilimitados y multi-sucursal.",
-      en: "Basic: schedule, catalog, and customers. Pro: + POS, stylist floor and commissions, accounting, site (sections/images), and Instagram. Premium: + sponsors, unlimited limits, and multi-branch.",
+      es: "Básico: agenda, catálogo y clientes. Pro: + POS, inventario retail, insumos por servicio (con ajuste en caja), piso del estilista y comisiones, contabilidad, sitio e Instagram. Premium: + patrocinadores, límites ilimitados y multi-sucursal.",
+      en: "Basic: schedule, catalog, and customers. Pro: + POS, retail inventory, service consumables (with POS override), stylist floor and commissions, accounting, site, and Instagram. Premium: + sponsors, unlimited limits, and multi-branch.",
     },
     adminHref: "/billing",
     helpTopic: "facturacion",

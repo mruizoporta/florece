@@ -28,6 +28,7 @@ import { EntitlementsModule } from './entitlements/entitlements.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { AccountingModule } from './accounting/accounting.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { SupportModule } from './support/support.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { PayrollModule } from './payroll/payroll.module';
     PlatformModule,
     AccountingModule,
     PayrollModule,
+    SupportModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
