@@ -35,8 +35,8 @@ rsync -az --delete \
   --exclude 'apps/web/.env.local' \
   --exclude 'apps/web/.next' \
   --exclude 'apps/api/dist' \
-  --exclude 'apps/api/storage' \
-  --exclude 'storage' \
+  --exclude '/apps/api/storage/' \
+  --exclude '/storage/' \
   --exclude 'packages/shared/dist' \
   --exclude 'legacy' \
   --exclude '.venv' \
