@@ -30,6 +30,7 @@ import { useSalonMoney } from "@/components/admin/SalonMoneyProvider";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLocale } from "@/components/LocaleProvider";
 import { FloreceLogo } from "@/components/brand/FloreceLogo";
+import { formatAppointmentTime } from "@/lib/format";
 import { salonTodayYmd } from "@/lib/dates";
 import type { Locale } from "@/lib/i18n";
 
@@ -91,10 +92,6 @@ type MyDay = {
   lines: MyDayLine[];
 };
 
-function todayYmd() {
-  return salonTodayYmd();
-}
-
 function fill(template: string, vars: Record<string, string | number>) {
   return Object.entries(vars).reduce(
     (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
@@ -103,14 +100,7 @@ function fill(template: string, vars: Record<string, string | number>) {
 }
 
 function formatTime(value: string | null | undefined, locale: Locale) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleTimeString(locale === "en" ? "en-US" : "es-NI", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  return formatAppointmentTime(value, locale);
 }
 
 function normalize(value: string) {
@@ -137,7 +127,7 @@ function stylistsOnSheet(sheet: OpenSheet) {
 export default function StylistFloorPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const { formatMoney } = useSalonMoney();
+  const { formatMoney, timeZone } = useSalonMoney();
   const { tr, locale } = useLocale();
 
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -164,7 +154,7 @@ export default function StylistFloorPage() {
       const profile = await getMe();
       setMe(profile);
       const eid = profile?.user.employeeId;
-      const date = todayYmd();
+      const date = salonTodayYmd(new Date(), timeZone);
       const [apts, svcs, sheets, day] = await Promise.all([
         api<Appointment[]>(
           `/v1/appointments?date=${date}${eid ? `&employee_id=${eid}` : ""}`,
@@ -198,7 +188,7 @@ export default function StylistFloorPage() {
     } finally {
       setLoading(false);
     }
-  }, [slug, tr]);
+  }, [slug, tr, timeZone]);
 
   useEffect(() => {
     load();

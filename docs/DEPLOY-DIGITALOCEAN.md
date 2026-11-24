@@ -33,7 +33,7 @@ Variables opcionales: `FLORECE_DEPLOY_HOST`, `FLORECE_REMOTE_DIR`, `FLORECE_PUBL
 - Panel: https://floreceapp.com/login  
   slug `demo` · `admin@demo.florece.app` · `demo1234`
 - Sitio: https://floreceapp.com/s/demo
-- Plataforma: slug `ops` · `owner@florece.app` · `florece-owner-2026`
+- Plataforma: slug `ops` · `mruiz@galilinnovations.com` · contraseña en `PLATFORM_OWNER_PASSWORD` del `.env`
 - Respaldo IP: http://209.38.139.227:8090
 
 ## Dominio

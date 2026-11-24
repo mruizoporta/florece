@@ -23,7 +23,7 @@ type Expense = {
 };
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
 }
 
 function methodLabel(method: string) {
@@ -88,7 +88,8 @@ export default function AccountingExpensesPage() {
           categoryId: Number(categoryId),
           amount: Number(amount),
           method,
-          spentAt: new Date(spentAt).toISOString(),
+          // Mediodía del día elegido: "YYYY-MM-DD" solo es medianoche UTC (el día anterior en el salón).
+          spentAt: new Date(`${spentAt}T12:00:00`).toISOString(),
           note: note.trim() || undefined,
         },
       });

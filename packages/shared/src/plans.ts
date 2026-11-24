@@ -108,16 +108,20 @@ export const PLANS = {
     features: [
       'Para micro salón que empieza a ordenarse',
       'Agenda, citas y calendario',
-      'Catálogo y clientes',
+      'Reserva en línea con link propio y WhatsApp',
+      'App móvil para la dueña y el equipo',
+      'Recordatorios automáticos de cita',
+      'Catálogo, clientes y lista de espera',
       'Hasta 3 profesionales · 20 servicios',
-      'Trial 14 días',
     ],
     featuresEn: [
       'For micro salons getting organized',
       'Schedule, bookings & calendar',
-      'Catalog & customers',
+      'Online booking with your own link & WhatsApp',
+      'Mobile app for owner and team',
+      'Automatic appointment reminders',
+      'Catalog, customers & waitlist',
       'Up to 3 pros / 20 services',
-      '14-day trial',
     ],
     entitlements: {
       ...ALL_OFF,
@@ -141,8 +145,9 @@ export const PLANS = {
       'Todo Básico + hasta 10 profesionales',
       'POS / caja y cortes',
       'Inventario retail + insumos por servicio',
-      'Piso del estilista + comisiones',
-      'Contabilidad operativa',
+      'Piso del estilista, comisiones y nómina',
+      'Vales de regalo, promociones y opiniones',
+      'Reportes de ventas y contabilidad operativa',
       'Sitio web: secciones e imágenes + Instagram',
     ],
     featuresEn: [
@@ -150,8 +155,9 @@ export const PLANS = {
       'Everything in Basic + up to 10 pros',
       'POS / checkout',
       'Retail inventory + service consumables',
-      'Stylist floor + commissions',
-      'Operational accounting',
+      'Stylist floor, commissions & payroll',
+      'Gift vouchers, promotions & reviews',
+      'Sales reports & operational accounting',
       'Website: sections & images + Instagram',
     ],
     entitlements: {
@@ -179,17 +185,17 @@ export const PLANS = {
     trialDays: 14,
     features: [
       'Varias sucursales o equipo grande',
-      'Todo Pro (POS, inventario e insumos)',
-      'Profesionales y servicios ilimitados',
-      'Utilidad multi-sucursal',
-      'Patrocinadores',
+      'Todo Pro, sin límite de profesionales ni servicios',
+      'Ventas y utilidad consolidadas por sucursal',
+      'Marcas patrocinadoras en tu sitio',
+      'Soporte prioritario',
     ],
     featuresEn: [
       'Multi-branch or large teams',
-      'Everything in Pro (POS, inventory & consumables)',
-      'Unlimited pros & services',
-      'Multi-branch profit rollups',
-      'Sponsors',
+      'Everything in Pro, unlimited pros & services',
+      'Consolidated sales & profit by branch',
+      'Sponsor brands on your site',
+      'Priority support',
     ],
     entitlements: {
       appointments: true,
@@ -214,8 +220,10 @@ export type PlanSlug = keyof typeof PLANS;
 export const TRIAL_DAYS = 14;
 
 export const PLATFORM_TENANT_SLUG = 'ops';
-export const PLATFORM_OWNER_EMAIL = 'owner@florece.app';
-export const PLATFORM_OWNER_PASSWORD = 'florece-owner-2026';
+export const PLATFORM_OWNER_EMAIL = 'mruiz@galilinnovations.com';
+// La contraseña de la dueña de la plataforma NO va aquí: este paquete se
+// empaqueta en la web y en la app móvil. El seed la lee de
+// PLATFORM_OWNER_PASSWORD en apps/api/.env.
 
 export const TENANT_SUBSCRIPTION_STATUS = {
   TRIAL: 'trial',
@@ -329,9 +337,17 @@ export const ADMIN_ROUTE_FEATURE: Record<string, FeatureKey | null> = {
   '/board': 'appointments',
   '/calendar': 'calendar',
   '/appointments': 'appointments',
+  '/waitlist': 'appointments',
   '/orders': 'pos',
+  '/pos': 'pos',
+  '/reports': 'pos',
+  '/vouchers': 'pos',
+  '/promotions': 'pos',
+  '/feedback': 'pos',
   '/employees': null,
+  '/payroll': 'accounting',
   '/catalog': 'catalog',
+  '/inventory': 'pos',
   '/customers': 'customers',
   '/users': null,
   '/sections': 'sections',

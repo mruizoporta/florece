@@ -29,7 +29,9 @@ export function BranchSwitcher({ slug }: { slug: string }) {
 
   if (!canMulti || branches.length <= 1) {
     return (
-      <p className="truncate text-sm font-semibold text-brand-ink">/{slug}</p>
+      <p className="truncate text-sm font-semibold text-brand-ink">
+        {branches.find((b) => b.slug === slug)?.name ?? ""}
+      </p>
     );
   }
 
@@ -58,11 +60,10 @@ export function BranchSwitcher({ slug }: { slug: string }) {
         className="flex max-w-full items-center gap-1 truncate text-left"
       >
         <span className="truncate text-sm font-semibold text-brand-ink">
-          {current?.name ?? `/${slug}`}
+          {current?.name}
         </span>
         <ChevronDown size={14} className="shrink-0 text-brand-text-muted" />
       </button>
-      <p className="truncate text-[11px] text-brand-text-muted">/{slug}</p>
       {open ? (
         <>
           <button
@@ -84,7 +85,6 @@ export function BranchSwitcher({ slug }: { slug: string }) {
                 }`}
               >
                 <span className="block truncate">{branch.name}</span>
-                <span className="block truncate text-[11px]">/{branch.slug}</span>
               </button>
             ))}
           </div>

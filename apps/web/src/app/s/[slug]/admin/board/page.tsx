@@ -25,7 +25,9 @@ import {
   playNewAppointmentBeep,
   type AppointmentRealtimeEvent,
 } from "@/lib/appointments-socket";
+import { formatAppointmentTime } from "@/lib/format";
 import { salonTodayYmd } from "@/lib/dates";
+import { useSalonMoney } from "@/components/admin/SalonMoneyProvider";
 import { employeeImageUrl } from "@/lib/images";
 import { AppointmentWhatsAppActions } from "@/components/admin/AppointmentWhatsAppActions";
 import Link from "next/link";
@@ -66,11 +68,7 @@ const BOARD_COLUMNS: Array<{
 ];
 
 function formatTime(value?: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString("es", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatAppointmentTime(value);
 }
 
 function serviceNames(a: Appointment) {
@@ -87,6 +85,7 @@ export default function AdminBoardPage() {
   const params = useParams();
   const slug = params.slug as string;
   const { tr, locale } = useLocale();
+  const { timeZone } = useSalonMoney();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [statuses, setStatuses] = useState<StatusRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +100,7 @@ export default function AdminBoardPage() {
   const knownIdsRef = useRef<Set<number>>(new Set());
   const toastTimerRef = useRef<number | null>(null);
 
-  const today = salonTodayYmd();
+  const today = salonTodayYmd(new Date(), timeZone);
 
   useEffect(() => {
     getMe()
@@ -523,7 +522,7 @@ export default function AdminBoardPage() {
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl border border-brand-primary/30 bg-brand-ink px-4 py-3 text-sm text-white shadow-lg"
+          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl border border-brand-primary/30 bg-brand-ink px-4 py-3 text-sm text-brand-base shadow-lg"
         >
           {toast}
         </div>

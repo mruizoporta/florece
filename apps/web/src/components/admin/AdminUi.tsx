@@ -220,7 +220,7 @@ export function AdminModal({
   if (!open || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex justify-end">
+    <div className="admin-portal fixed inset-0 z-[100] flex justify-end">
       <button
         type="button"
         aria-label="Cerrar"

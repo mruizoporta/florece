@@ -26,11 +26,11 @@ type SalesSummary = {
 
 function monthStartIso() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString("en-CA");
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
 }
 
 export default function SalesSummaryPage() {
@@ -66,12 +66,9 @@ export default function SalesSummaryPage() {
 
   const query = useMemo(() => {
     const q = new URLSearchParams();
-    if (from) q.set("from", new Date(from).toISOString());
-    if (to) {
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
-      q.set("to", end.toISOString());
-    }
+    // Días calendario; el servidor los interpreta en el horario del salón.
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
     return q.toString();
   }, [from, to]);
 
@@ -180,9 +177,6 @@ export default function SalesSummaryPage() {
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium text-brand-ink">{branch.name}</p>
-                      <p className="text-xs text-brand-text-muted">
-                        /{branch.slug}
-                      </p>
                     </td>
                     <td className="px-4 py-3 text-brand-ink">{branch.orderCount}</td>
                     <td className="px-4 py-3 text-brand-ink">

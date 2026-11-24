@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export * from './plans';
 export * from './inventory';
+export * from './market';
 
 export const RoleName = {
   Admin: 'Admin',
@@ -100,11 +101,23 @@ export const createBranchSchema = z.object({
 export type CreateBranchInput = z.infer<typeof createBranchSchema>;
 
 export const loginSchema = z.object({
-  tenantSlug: z.string().min(1).max(80),
+  // Opcional: sin código, el API busca el salón por correo + contraseña.
+  tenantSlug: z.string().min(1).max(80).optional(),
   email: z.string().email(),
   password: z.string().min(1),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const forgotPasswordSchema = loginSchema.pick({ tenantSlug: true, email: true });
+
+export type LoginSalonChoice = { slug: string; name: string };
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(32).max(128),
+  password: z.string().min(8).max(200),
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export const registerSalonSchema = z.object({
   salonName: z.string().min(1).max(120),
@@ -116,7 +129,7 @@ export const registerSalonSchema = z.object({
   adminName: z.string().min(1).max(120),
   email: z.string().email(),
   password: z.string().min(8),
-  billingRegion: z.enum(['NI', 'US']).default('NI'),
+  billingRegion: z.enum(['NI', 'US', 'DO']).default('NI'),
   locale: z.enum(['es', 'en']).default('es'),
   planSlug: z.string().optional(),
 });
@@ -141,6 +154,11 @@ export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 export const DEMO_SLUG = 'demo';
 export const DEMO_ADMIN_EMAIL = 'admin@demo.florece.app';
 export const DEMO_ADMIN_PASSWORD = 'demo1234';
+
+/** Salón de prueba en República Dominicana. La clave va en DO_TRIAL_PASSWORD (.env de la API). */
+export const DO_TRIAL_SLUG = 'prueba-rd';
+export const DO_TRIAL_EMAIL = 'ana@prueba.florece.app';
+export const DO_TRIAL_STYLIST_EMAIL = 'laura@prueba.florece.app';
 
 export type AuthUser = {
   id: number;

@@ -60,6 +60,7 @@ export class EmployeesController {
       email?: string;
       base_salary?: number;
       commission_rate?: number;
+      product_commission_rate?: number;
       baseSalary?: number;
       commissionRate?: number;
     },
@@ -68,6 +69,7 @@ export class EmployeesController {
       ...body,
       baseSalary: body.base_salary ?? body.baseSalary,
       commissionRate: body.commission_rate ?? body.commissionRate,
+      productCommissionRate: body.product_commission_rate,
     });
   }
 
@@ -86,6 +88,7 @@ export class EmployeesController {
       email?: string;
       base_salary?: number;
       commission_rate?: number;
+      product_commission_rate?: number;
       baseSalary?: number;
       commissionRate?: number;
     },
@@ -94,6 +97,7 @@ export class EmployeesController {
       ...body,
       baseSalary: body.base_salary ?? body.baseSalary,
       commissionRate: body.commission_rate ?? body.commissionRate,
+      productCommissionRate: body.product_commission_rate,
     });
   }
 

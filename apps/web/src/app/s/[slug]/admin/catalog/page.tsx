@@ -28,10 +28,12 @@ import { ModernSelect } from "@/components/ui/ModernSelect";
 import { useLocale } from "@/components/LocaleProvider";
 import { itemImageUrl } from "@/lib/images";
 import { Upload } from "lucide-react";
+import { StockAdjustModal, StockHistoryModal } from "@/components/admin/StockDialogs";
 
 type ServiceRow = {
   id: number;
   durationTime: number;
+  commissionRate?: number | null;
   consumablesCount?: number;
   consumables?: Array<{
     productId: number;
@@ -58,6 +60,8 @@ type ProductRow = {
   lowStock: boolean;
   usage?: ProductUsage;
   unit?: ProductUnit;
+  barcode?: string | null;
+  cost?: number;
   item: {
     name: string;
     price: number;
@@ -70,30 +74,11 @@ type ProductRow = {
   };
 };
 
-type MovementRow = {
-  id: number | string;
-  type: string;
-  quantity: number;
-  stockAfter: number;
-  reason?: string | null;
-  createdAt?: string | null;
-  user?: { id: number | string; name: string } | null;
-  order?: { id: number | string; name?: string | null; status?: string } | null;
-};
-
 type EditTarget =
   | { kind: "service"; row: ServiceRow }
   | { kind: "product"; row: ProductRow }
   | { kind: "category"; row: Category }
   | null;
-
-const MOVEMENT_LABEL: Record<string, string> = {
-  sale: "Venta",
-  consume: "Insumo",
-  restore: "Reverso",
-  receive: "Ingreso",
-  adjustment: "Ajuste",
-};
 
 export default function AdminCatalogPage() {
   const params = useParams();
@@ -113,36 +98,15 @@ export default function AdminCatalogPage() {
   const [editing, setEditing] = useState<EditTarget>(null);
   const [saving, setSaving] = useState(false);
   const [canRecipes, setCanRecipes] = useState(false);
+  const [barcodeScanner, setBarcodeScanner] = useState(false);
   const [recipeLines, setRecipeLines] = useState<
     Array<{ productId: string; quantity: string }>
   >([]);
   const [lowOnly, setLowOnly] = useState(false);
   const [adjustProduct, setAdjustProduct] = useState<ProductRow | null>(null);
-  const [adjustForm, setAdjustForm] = useState({
-    direction: "out" as "in" | "out",
-    qty: "1",
-    reason: "",
-  });
-  const [adjustSaving, setAdjustSaving] = useState(false);
-  const [adjustError, setAdjustError] = useState<string | null>(null);
 
-  const OUT_REASONS = [
-    "Regalía",
-    "Rifa / sorteo",
-    "Daño / merma",
-    "Uso interno",
-    "Devolución a proveedor",
-    "Otro",
-  ];
-  const IN_REASONS = [
-    "Compra / ingreso",
-    "Devolución de clienta",
-    "Conteo / corrección",
-    "Otro",
-  ];
+
   const [historyProduct, setHistoryProduct] = useState<ProductRow | null>(null);
-  const [movements, setMovements] = useState<MovementRow[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
 
   const lowCount = useMemo(
     () => products.filter((p) => p.lowStock).length,
@@ -161,7 +125,7 @@ export default function AdminCatalogPage() {
   async function load() {
     setLoading(true);
     try {
-      const [svc, prod, cats, status] = await Promise.all([
+      const [svc, prod, cats, status, settings] = await Promise.all([
         api<ServiceRow[]>("/v1/catalog/services", {
           tenantSlug: slug,
           auth: true,
@@ -179,7 +143,12 @@ export default function AdminCatalogPage() {
         }>("/billing/account-status", { tenantSlug: slug, auth: true }).catch(
           () => null,
         ),
+        api<{ setting?: { barcodeScanner?: boolean } }>("/v1/settings", {
+          tenantSlug: slug,
+          auth: true,
+        }).catch(() => null),
       ]);
+      setBarcodeScanner(Boolean(settings?.setting?.barcodeScanner));
       setServices(svc);
       setProducts(prod);
       setCategories(cats);
@@ -223,6 +192,7 @@ export default function AdminCatalogPage() {
       description: row.item.description ?? "",
       price: String(row.item.price ?? ""),
       duration_time: String(row.durationTime ?? 30),
+      commission_rate: row.commissionRate == null ? "" : String(row.commissionRate),
       image: row.item.image ?? "",
     });
     setRecipeLines(
@@ -246,6 +216,8 @@ export default function AdminCatalogPage() {
       min_stock: String(row.minStock ?? 0),
       usage: row.usage ?? "retail",
       unit: row.unit ?? "unit",
+      barcode: row.barcode ?? "",
+      cost: row.cost ? String(row.cost) : "",
       image: row.item.image ?? "",
     });
     setMessage(null);
@@ -264,61 +236,10 @@ export default function AdminCatalogPage() {
 
   function openAdjust(row: ProductRow) {
     setAdjustProduct(row);
-    setAdjustForm({ direction: "out", qty: "1", reason: "" });
-    setAdjustError(null);
   }
 
-  async function openHistory(row: ProductRow) {
+  function openHistory(row: ProductRow) {
     setHistoryProduct(row);
-    setHistoryLoading(true);
-    setMovements([]);
-    try {
-      const rows = await api<MovementRow[]>(
-        `/v1/catalog/products/${row.id}/movements`,
-        { tenantSlug: slug, auth: true },
-      );
-      setMovements(rows);
-    } catch {
-      setMovements([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
-
-  async function handleAdjust(e: FormEvent) {
-    e.preventDefault();
-    if (!adjustProduct) return;
-    const qty = Math.trunc(Number(adjustForm.qty));
-    if (!Number.isFinite(qty) || qty <= 0) {
-      setAdjustError("Indicá una cantidad mayor a 0");
-      return;
-    }
-    const reason = adjustForm.reason.trim();
-    if (!reason) {
-      setAdjustError("Elegí o escribí un motivo");
-      return;
-    }
-    setAdjustError(null);
-    setAdjustSaving(true);
-    try {
-      const delta = adjustForm.direction === "out" ? -qty : qty;
-      await api(`/v1/catalog/products/${adjustProduct.id}/adjust`, {
-        method: "POST",
-        tenantSlug: slug,
-        auth: true,
-        body: {
-          delta,
-          reason,
-          type: adjustForm.direction === "out" ? "adjustment" : "receive",
-        },
-      });
-      setAdjustProduct(null);
-      await load();
-    } catch (err) {
-      setAdjustError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setAdjustSaving(false);
-    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -339,6 +260,7 @@ export default function AdminCatalogPage() {
           image: form.image || undefined,
           status: true,
           duration_time: Number(form.duration_time ?? 30),
+          commission_rate: form.commission_rate ? Number(form.commission_rate) : null,
         };
         let serviceId: number;
         if (isEdit && editing?.kind === "service") {
@@ -391,6 +313,8 @@ export default function AdminCatalogPage() {
           min_stock: Number(form.min_stock ?? 0),
           usage,
           unit: form.unit || "unit",
+          ...(form.barcode !== undefined ? { barcode: form.barcode.trim() || null } : {}),
+          ...(form.cost ? { cost: Number(form.cost) } : {}),
         };
         if (isEdit && editing?.kind === "product") {
           await api(`/v1/catalog/products/${editing.row.id}`, {
@@ -818,6 +742,29 @@ export default function AdminCatalogPage() {
             </div>
           ) : null}
 
+          {isServiceForm ? (
+            <div>
+              <label className="label-field" htmlFor="service-commission">
+                Comisión de este servicio (%)
+              </label>
+              <input
+                id="service-commission"
+                className="input-field"
+                type="number"
+                step="0.01"
+                min={0}
+                max={100}
+                placeholder="La de cada profesional"
+                value={form.commission_rate ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, commission_rate: e.target.value }))}
+              />
+              <p className="mt-1 text-xs text-brand-text-muted">
+                Dejalo vacío para usar el % de cada profesional. Útil si este servicio paga distinto (ej. 50% en
+                uñas, 30% en color).
+              </p>
+            </div>
+          ) : null}
+
           {isServiceForm && canRecipes ? (
             <div className="space-y-3 rounded-2xl border border-brand-ink/10 bg-brand-warm/40 p-4">
               <div>
@@ -980,7 +927,25 @@ export default function AdminCatalogPage() {
                   }
                 />
               </div>
-              <div className="col-span-2">
+              {barcodeScanner || form.barcode ? (
+                <div className="col-span-2">
+                  <label className="label-field">Código de barras (opcional)</label>
+                  <input
+                    className="input-field font-mono"
+                    value={form.barcode ?? ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, barcode: e.target.value }))
+                    }
+                    // El lector "teclea" el código y manda Enter: no dejar que envíe el formulario.
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
+                    placeholder="Escaneá el producto o escribí el código"
+                    autoComplete="off"
+                  />
+                </div>
+              ) : null}
+              <div className="col-span-2 sm:col-span-1">
                 <label className="label-field">
                   Precio {form.usage === "internal" ? "(opcional para insumos)" : ""}
                 </label>
@@ -995,6 +960,28 @@ export default function AdminCatalogPage() {
                   }
                   required={form.usage !== "internal"}
                 />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <label className="label-field">Costo por unidad (opcional)</label>
+                <input
+                  className="input-field"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={form.cost ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
+                  placeholder="Lo que te cuesta a vos"
+                />
+                {Number(form.cost) > 0 && Number(form.price) > 0 ? (
+                  <p
+                    className={`mt-1 text-xs ${
+                      Number(form.price) > Number(form.cost) ? "text-emerald-700" : "text-red-700"
+                    }`}
+                  >
+                    Ganás {formatMoney(Number(form.price) - Number(form.cost))} por unidad (
+                    {Math.round(((Number(form.price) - Number(form.cost)) / Number(form.price)) * 100)}%)
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1090,192 +1077,17 @@ export default function AdminCatalogPage() {
         </form>
       </AdminModal>
 
-      <AdminModal
-        open={Boolean(adjustProduct)}
+      <StockAdjustModal
+        slug={slug}
+        product={adjustProduct}
         onClose={() => setAdjustProduct(null)}
-        title={
-          adjustProduct
-            ? `Ajustar · ${adjustProduct.item.name}`
-            : "Ajustar stock"
-        }
-      >
-        {adjustProduct ? (
-          <form onSubmit={handleAdjust} className="space-y-4">
-            <p className="text-sm text-brand-text-muted">
-              Stock actual:{" "}
-              <strong className="text-brand-ink">
-                {formatStockQty(
-                  adjustProduct.stock,
-                  adjustProduct.unit ?? "unit",
-                )}
-              </strong>
-              {" · "}mínimo{" "}
-              {formatStockQty(
-                adjustProduct.minStock,
-                adjustProduct.unit ?? "unit",
-              )}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className={`rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
-                  adjustForm.direction === "out"
-                    ? "bg-brand-ink text-white"
-                    : "bg-brand-warm text-brand-ink hover:bg-brand-primary/30"
-                }`}
-                onClick={() =>
-                  setAdjustForm((f) => ({
-                    ...f,
-                    direction: "out",
-                    reason: "",
-                  }))
-                }
-              >
-                Salida
-              </button>
-              <button
-                type="button"
-                className={`rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
-                  adjustForm.direction === "in"
-                    ? "bg-brand-ink text-white"
-                    : "bg-brand-warm text-brand-ink hover:bg-brand-primary/30"
-                }`}
-                onClick={() =>
-                  setAdjustForm((f) => ({
-                    ...f,
-                    direction: "in",
-                    reason: "",
-                  }))
-                }
-              >
-                Ingreso
-              </button>
-            </div>
-            <div>
-              <label className="label-field">Cantidad</label>
-              <input
-                className="input-field"
-                type="number"
-                min={1}
-                step={1}
-                value={adjustForm.qty}
-                onChange={(e) =>
-                  setAdjustForm((f) => ({ ...f, qty: e.target.value }))
-                }
-                required
-              />
-            </div>
-            <div>
-              <label className="label-field">Motivo</label>
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {(adjustForm.direction === "out"
-                  ? OUT_REASONS
-                  : IN_REASONS
-                ).map((label) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className={`rounded-full px-3 py-1 text-xs transition ${
-                      adjustForm.reason === label
-                        ? "bg-brand-primary/50 text-brand-ink"
-                        : "bg-brand-warm text-brand-text-muted hover:text-brand-ink"
-                    }`}
-                    onClick={() =>
-                      setAdjustForm((f) => ({ ...f, reason: label }))
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <input
-                className="input-field"
-                value={adjustForm.reason}
-                onChange={(e) =>
-                  setAdjustForm((f) => ({ ...f, reason: e.target.value }))
-                }
-                placeholder={
-                  adjustForm.direction === "out"
-                    ? "Ej. regalía clienta VIP, frasco roto…"
-                    : "Ej. factura #123, inventario…"
-                }
-                required
-              />
-            </div>
-            {adjustError ? (
-              <MessageBanner message={adjustError} type="error" />
-            ) : null}
-            <button
-              type="submit"
-              disabled={adjustSaving}
-              className="btn-primary w-full !rounded-2xl disabled:opacity-50"
-            >
-              {adjustSaving
-                ? tr("admin.saving")
-                : adjustForm.direction === "out"
-                  ? "Registrar salida"
-                  : "Registrar ingreso"}
-            </button>
-          </form>
-        ) : null}
-      </AdminModal>
-
-      <AdminModal
-        open={Boolean(historyProduct)}
+        onSaved={load}
+      />
+      <StockHistoryModal
+        slug={slug}
+        product={historyProduct}
         onClose={() => setHistoryProduct(null)}
-        title={
-          historyProduct
-            ? `Movimientos · ${historyProduct.item.name}`
-            : "Movimientos"
-        }
-        wide
-      >
-        {historyLoading ? (
-          <LoadingSpinner />
-        ) : movements.length === 0 ? (
-          <p className="text-sm text-brand-text-muted">Sin movimientos aún.</p>
-        ) : (
-          <div className="max-h-[50vh] overflow-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-brand-text-muted">
-                <tr>
-                  <th className="py-2 pr-3 font-medium">Fecha</th>
-                  <th className="py-2 pr-3 font-medium">Tipo</th>
-                  <th className="py-2 pr-3 font-medium">Δ</th>
-                  <th className="py-2 pr-3 font-medium">Queda</th>
-                  <th className="py-2 font-medium">Detalle</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.map((m) => (
-                  <tr key={String(m.id)} className="border-t border-brand-ink/5">
-                    <td className="py-2.5 pr-3 text-brand-text-muted whitespace-nowrap">
-                      {m.createdAt
-                        ? new Date(m.createdAt).toLocaleString()
-                        : "—"}
-                    </td>
-                    <td className="py-2.5 pr-3">
-                      {MOVEMENT_LABEL[m.type] ?? m.type}
-                    </td>
-                    <td
-                      className={`py-2.5 pr-3 font-medium ${
-                        m.quantity < 0 ? "text-red-700" : "text-emerald-700"
-                      }`}
-                    >
-                      {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
-                    </td>
-                    <td className="py-2.5 pr-3">{m.stockAfter}</td>
-                    <td className="py-2.5 text-brand-text-muted">
-                      {m.reason ?? "—"}
-                      {m.user?.name ? ` · ${m.user.name}` : ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </AdminModal>
+      />
     </div>
   );
 }

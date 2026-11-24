@@ -21,6 +21,7 @@ import { useLocale } from "@/components/LocaleProvider";
 function statusLabel(status: string) {
   if (status === "finalized") return "Pagada";
   if (status === "cancelled") return "Anulada";
+  if (status === "prepaid") return "Venta de bono";
   if (status === "open") return "Abierta";
   return status;
 }

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { marketForRegion } from '@florece/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class OnboardingService {
       { name: 'En espera', color: 'success', description: 'En espera' },
       { name: 'Atendiendo', color: 'info', description: 'Atendiendo' },
       { name: 'Concluido', color: 'primary', description: 'Concluido' },
+      { name: 'No se presentó', color: 'secondary', description: 'La clienta no vino y no avisó' },
     ];
 
     for (const row of statusRows) {
@@ -34,6 +36,7 @@ export class OnboardingService {
         data: {
           name,
           description: name,
+          color: 'primary',
           tenantId,
         },
       });
@@ -94,6 +97,22 @@ export class OnboardingService {
     });
 
     await this.bootstrapExpenseCategories(tenantId, now);
+  }
+
+  /** RD$ and a Dominican location. Nicaragua keeps the setting defaults. */
+  async applyMarketDefaults(
+    tenantId: bigint,
+    region?: string | null,
+  ): Promise<void> {
+    const market = marketForRegion(region);
+    if (market.region !== 'DO') return;
+    await this.prisma.setting.updateMany({
+      where: { tenantId },
+      data: {
+        currencySymbol: market.currencySymbol,
+        location: 'Santo Domingo, República Dominicana',
+      },
+    });
   }
 
   async bootstrapExpenseCategories(tenantId: bigint, now = new Date()) {

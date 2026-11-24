@@ -36,7 +36,7 @@ const createTenantSchema = z.object({
   planSlug: z.string().optional(),
   trialDays: z.number().int().min(0).max(365).optional(),
   adminNote: z.string().max(2000).optional(),
-  billingRegion: z.enum(['NI', 'US']).optional(),
+  billingRegion: z.enum(['NI', 'US', 'DO']).optional(),
   locale: z.enum(['es', 'en']).optional(),
   featureOverrides: featureOverridesSchema,
 });

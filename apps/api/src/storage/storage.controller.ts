@@ -1,7 +1,11 @@
 import {
   BadRequestException,
   Controller,
+  Get,
+  NotFoundException,
+  Param,
   Post,
+  Res,
   UploadedFile,
   UseInterceptors,
   Body,
@@ -11,6 +15,8 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { TenantContext } from '../tenant/tenant.context';
 import { StorageService } from './storage.service';
+import type { Response } from 'express';
+import { existsSync } from 'fs';
 
 type UploadedImage = {
   buffer: Buffer;
@@ -29,7 +35,8 @@ export class StorageController {
 
   @Post('upload')
   @ApiBearerAuth()
-  @Roles('Admin')
+  // Recepción y profesionales suben fotos de antes/después a la ficha técnica.
+  @Roles('Admin', 'Recepcionista', 'Estilista')
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -72,5 +79,16 @@ export class StorageController {
       kind: saved.kind,
       bytes: saved.bytes,
     };
+  }
+
+  /** Fotos de la ficha técnica: solo con sesión del mismo salón. */
+  @Get('private/:kind/:file')
+  @ApiBearerAuth()
+  @Roles('Admin', 'Recepcionista', 'Estilista')
+  privateFile(@Param('kind') kind: string, @Param('file') file: string, @Res() res: Response) {
+    const path = this.storage.privateFile(this.tenantContext.getTenant().slug, kind, file);
+    if (!path || !existsSync(path)) throw new NotFoundException('Foto no encontrada');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.sendFile(path);
   }
 }

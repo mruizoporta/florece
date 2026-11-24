@@ -11,7 +11,7 @@ import {
   AdminTable,
   LoadingSpinner,
 } from "@/components/admin/AdminUi";
-import { formatDateTime } from "@/lib/format";
+import { formatAppointmentDateTime } from "@/lib/format";
 import { useLocale } from "@/components/LocaleProvider";
 import { MessageCircle } from "lucide-react";
 import { appointmentPhone, appointmentWhatsAppUrl } from "@/lib/whatsapp";
@@ -21,7 +21,7 @@ function statusTone(name?: string | null) {
   if (!name) return "muted" as const;
   const n = name.toLowerCase();
   if (n.includes("conclu") || n.includes("final")) return "success" as const;
-  if (n.includes("cancel")) return "danger" as const;
+  if (n.includes("cancel") || n.includes("present")) return "danger" as const;
   return "primary" as const;
 }
 
@@ -78,7 +78,7 @@ export default function AdminAppointmentsPage() {
             <tr key={a.id} className="transition hover:bg-brand-warm/80">
               <td className="px-5 py-4 font-medium text-brand-ink">{a.name}</td>
               <td className="px-5 py-4 text-brand-text-muted">
-                {formatDateTime(a.startTime)}
+                {formatAppointmentDateTime(a.startTime)}
               </td>
               <td className="px-5 py-4 text-brand-text-muted">
                 {a.employee?.name ?? "—"}

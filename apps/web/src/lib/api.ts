@@ -172,4 +172,16 @@ export async function apiUpload<T = unknown>(
   return data as T;
 }
 
+/** Archivo protegido (p. ej. fotos de la ficha técnica) como URL local del navegador. */
+export async function apiBlobUrl(path: string, tenantSlug?: string): Promise<string> {
+  const headers: Record<string, string> = {};
+  const slug = tenantSlug ?? getStoredTenantSlug();
+  if (slug) headers["X-Tenant-Slug"] = slug;
+  const token = getAccessToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
+  if (!res.ok) throw new ApiError(`Request failed (${res.status})`, res.status);
+  return URL.createObjectURL(await res.blob());
+}
+
 export { API_URL };

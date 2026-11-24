@@ -196,7 +196,7 @@ export default function AdminSettingsImagesPage() {
               }`}
             >
               <div
-                className={`relative w-full overflow-hidden bg-[#f3f0ea] ${slot.aspect}`}
+                className={`relative w-full overflow-hidden bg-brand-warm ${slot.aspect}`}
               >
                 {src ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -267,7 +267,7 @@ export default function AdminSettingsImagesPage() {
         {activeSlot ? (
           <div className="space-y-4">
             <div
-              className={`overflow-hidden rounded-2xl bg-[#f3f0ea] ${activeSlot.aspect}`}
+              className={`overflow-hidden rounded-2xl bg-brand-warm ${activeSlot.aspect}`}
             >
               {!isPlaceholderAsset(draft) && activeSlot.preview(draft) ? (
                 // eslint-disable-next-line @next/next/no-img-element

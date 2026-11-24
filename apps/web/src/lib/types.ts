@@ -56,6 +56,7 @@ export type PublicEmployee = {
   status?: boolean;
   baseSalary?: number;
   commissionRate?: number;
+  productCommissionRate?: number;
   personalInfo?: { phone?: string; email?: string } | null;
   schedules?: ScheduleEntry[];
   socials?: { socialId: number; href: string; social?: { name: string } }[];
@@ -72,6 +73,8 @@ export type ScheduleEntry = {
 };
 
 export type Appointment = {
+  /** Solo en el detalle del panel. */
+  customerNoShows?: number;
   id: number;
   name: string;
   phone?: string | null;
@@ -83,7 +86,7 @@ export type Appointment = {
   statusId?: number;
   type?: { id: number; name: string };
   services?: { id: number; name: string; durationTime?: number }[];
-  customer?: { id: number; name: string; phone?: string } | null;
+  customer?: { id: number; name: string; phone?: string; allergies?: string | null } | null;
 };
 
 export type AvailableSlotsResponse = {
@@ -122,6 +125,13 @@ export type TenantSetting = {
   btnWhatsappBackgroundColor?: string;
   btnWhatsappTextColor?: string;
   activeAppointment?: boolean;
+  appointmentReminders?: boolean;
+  barcodeScanner?: boolean;
+  feedbackRequests?: boolean;
+  manualDiscounts?: "off" | "admin" | "cashier";
+  manualDiscountMaxPct?: number | string;
+  stackPromotions?: boolean;
+  googleReviewUrl?: string | null;
   appointmentType?: string;
 };
 
@@ -227,6 +237,20 @@ export type Order = {
   employee?: { id: number; name: string } | null;
   items?: OrderItem[];
   payments?: OrderPayment[];
+  discountTotal?: number;
+  discounts?: OrderDiscount[];
+};
+
+export type OrderDiscount = {
+  id: number;
+  source: "manual" | "coupon" | "auto";
+  label: string;
+  discountType: "percent" | "amount";
+  value: number;
+  amount: number;
+  note: string | null;
+  reason: string | null;
+  dismissed: boolean;
 };
 
 export type OrderItem = {
@@ -235,6 +259,7 @@ export type OrderItem = {
   unitPrice?: number;
   unitPriceSnapshot?: number;
   lineDiscount?: number;
+  promoDiscount?: number;
   lineTotal?: number;
   productId?: number | null;
   itemId?: number | null;
@@ -269,6 +294,7 @@ export type Customer = {
   email?: string | null;
   phone?: string | null;
   appointmentsCount?: number;
+  allergies?: string | null;
 };
 
 export type AppointmentStatus = {

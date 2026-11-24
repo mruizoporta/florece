@@ -115,7 +115,7 @@ export function ModernSelect({
               maxHeight: pos.maxHeight,
               zIndex: 80,
             }}
-            className="overflow-auto rounded-2xl border border-brand-ink/10 bg-white p-1.5 shadow-lg shadow-brand-ink/15"
+            className="overflow-auto rounded-2xl border border-brand-ink/10 bg-brand-elevated p-1.5 shadow-lg shadow-brand-ink/15"
           >
             {options.map((opt) => {
               const isActive = opt.value === value;
@@ -183,7 +183,7 @@ export function ModernSelect({
         aria-controls={listId}
         aria-required={required}
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 text-left transition ${
+        className={`flex w-full items-center gap-3 rounded-2xl border bg-brand-elevated px-4 py-3.5 text-left transition ${
           open
             ? "border-brand-primary shadow-[0_0_0_3px_rgba(196,165,116,0.28)]"
             : "border-brand-ink/10 hover:border-brand-ink/25"

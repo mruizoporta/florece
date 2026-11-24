@@ -1,6 +1,11 @@
-/** Keep in sync with API `America/Managua` day bounds. */
-export const SALON_TIMEZONE = "America/Managua";
+import { marketForRegion } from "@florece/shared";
 
-export function salonTodayYmd(now = new Date()): string {
-  return now.toLocaleDateString("en-CA", { timeZone: SALON_TIMEZONE });
+/** Default when the salon has not loaded a currency yet (Nicaragua). */
+export const SALON_TIMEZONE = marketForRegion("NI").timeZone;
+
+export function salonTodayYmd(
+  now = new Date(),
+  timeZone = SALON_TIMEZONE,
+): string {
+  return now.toLocaleDateString("en-CA", { timeZone });
 }

@@ -16,7 +16,7 @@ export function getStripePriceIdForRegion(
   region: string | null | undefined,
 ): string | null {
   const normalized = (region ?? '').toUpperCase();
-  if (normalized === 'US') {
+  if (normalized === 'US' || normalized === 'DO') {
     return plan.stripePriceIdUs ?? plan.stripePriceIdNi ?? null;
   }
   if (normalized === 'NI') {

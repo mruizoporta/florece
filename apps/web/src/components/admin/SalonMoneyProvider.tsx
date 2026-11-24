@@ -11,14 +11,17 @@ import {
 } from "react";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { timeZoneForSymbol } from "@florece/shared";
 
 type SalonMoneyContextValue = {
   currencySymbol: string;
+  timeZone: string;
   formatMoney: (amount?: number | null) => string;
 };
 
 const SalonMoneyContext = createContext<SalonMoneyContextValue>({
   currencySymbol: "C$",
+  timeZone: timeZoneForSymbol("C$"),
   formatMoney: (amount) => formatCurrency(amount, "C$"),
 });
 
@@ -45,14 +48,16 @@ export function SalonMoneyProvider({
       });
   }, [slug]);
 
+  const timeZone = timeZoneForSymbol(currencySymbol);
+
   const formatMoney = useCallback(
     (amount?: number | null) => formatCurrency(amount, currencySymbol),
     [currencySymbol],
   );
 
   const value = useMemo(
-    () => ({ currencySymbol, formatMoney }),
-    [currencySymbol, formatMoney],
+    () => ({ currencySymbol, timeZone, formatMoney }),
+    [currencySymbol, timeZone, formatMoney],
   );
 
   return (

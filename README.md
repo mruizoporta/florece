@@ -31,7 +31,7 @@ npm run dev       # API :3001 + web :3000 (or use dev:api / dev:web)
 | **Estilista (piso)** | `demo` | `maria@demo.florece.app` | `demo1234` | `/s/demo/stylist` |
 | Recepción | `demo` | `recepcion@demo.florece.app` | `demo1234` | `/s/demo/admin` |
 | Caja | `demo` | `caja@demo.florece.app` | `demo1234` | `/s/demo/admin` |
-| **Owner plataforma** | `ops` | `owner@florece.app` | `florece-owner-2026` | `/admin` |
+| **Owner plataforma** | `ops` | `mruiz@galilinnovations.com` | `PLATFORM_OWNER_PASSWORD` (.env) | `/admin` |
 
 Login: `/login` (código del salón + email + password).
 

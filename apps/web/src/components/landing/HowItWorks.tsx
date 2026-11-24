@@ -60,7 +60,7 @@ export function HowItWorks() {
       <div className="mt-12 flex flex-wrap gap-3">
         <Link
           href={`/s/${DEMO_SLUG}`}
-          className="inline-flex items-center gap-2 rounded-xl bg-brand-ink px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+          className="inline-flex items-center gap-2 rounded-xl bg-brand-ink px-5 py-3 text-sm font-semibold text-brand-base transition hover:-translate-y-0.5"
         >
           Ver demo del salón
           <ArrowRight size={16} />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Phone, Scissors, UserRound } from "lucide-react";
+import { RequestFeedbackButton } from "@/components/admin/RequestFeedbackButton";
 import { api } from "@/lib/api";
 import type { Appointment, AppointmentStatus, PublicEmployee } from "@/lib/types";
 import {
@@ -13,7 +14,7 @@ import {
   MessageBanner,
 } from "@/components/admin/AdminUi";
 import { ModernSelect } from "@/components/ui/ModernSelect";
-import { formatDateTime } from "@/lib/format";
+import { formatAppointmentDateTime, formatAppointmentTime } from "@/lib/format";
 import { employeeImageUrl } from "@/lib/images";
 import { AppointmentWhatsAppActions } from "@/components/admin/AppointmentWhatsAppActions";
 import { getMe } from "@/lib/auth";
@@ -33,7 +34,7 @@ function statusTone(name?: string | null) {
   if (!name) return "muted" as const;
   const n = name.toLowerCase();
   if (n.includes("conclu") || n.includes("final")) return "success" as const;
-  if (n.includes("cancel")) return "danger" as const;
+  if (n.includes("cancel") || n.includes("present")) return "danger" as const;
   if (n.includes("atend")) return "primary" as const;
   return "primary" as const;
 }
@@ -222,16 +223,23 @@ export default function AdminAppointmentDetailPage() {
               {appointment.status.name}
             </AdminPill>
           ) : null}
+          {appointment.customerNoShows ? (
+            <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-700">
+              Faltó {appointment.customerNoShows} {appointment.customerNoShows === 1 ? "vez" : "veces"} sin avisar
+            </span>
+          ) : null}
         </div>
         <p className="mt-2 text-[15px] text-brand-text-muted">
-          {formatDateTime(appointment.startTime)}
+          {formatAppointmentDateTime(appointment.startTime)}
           {appointment.endTime
-            ? ` → ${new Date(appointment.endTime).toLocaleTimeString("es", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}`
+            ? ` → ${formatAppointmentTime(appointment.endTime)}`
             : ""}
         </p>
+        {appointment.customer?.allergies ? (
+          <p className="mt-3 rounded-2xl border-l-4 border-red-500 bg-red-500/10 px-4 py-2.5 text-sm text-red-800">
+            <strong>Alergias y cuidados:</strong> {appointment.customer.allergies}
+          </p>
+        ) : null}
       </div>
 
       {message ? <MessageBanner message={message} type="error" /> : null}
@@ -322,6 +330,17 @@ export default function AdminAppointmentDetailPage() {
                 salonName={salonName}
                 locale={locale === "en" ? "en" : "es"}
                 variant="stack"
+              />
+            </div>
+          ) : null}
+
+          {appointment.status?.name === "Concluido" ? (
+            <div className="admin-card">
+              <RequestFeedbackButton
+                slug={slug}
+                target={{ appointment_id: Number(appointment.id) }}
+                phone={appointment.phone ?? appointment.customer?.phone}
+                className="btn-secondary inline-flex w-full items-center justify-center gap-2 py-2.5 text-sm"
               />
             </div>
           ) : null}

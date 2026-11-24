@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PromotionsModule } from './promotions/promotions.module';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { SerializeInterceptor } from './common/interceptors/serialize.interceptor';
@@ -28,8 +29,12 @@ import { EntitlementsModule } from './entitlements/entitlements.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { AccountingModule } from './accounting/accounting.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { FeedbackModule } from './feedback/feedback.module';
+import { ReportsModule } from './reports/reports.module';
 import { SupportModule } from './support/support.module';
 import { StorageModule } from './storage/storage.module';
+import { PublicSalonsModule } from './public/public-salons.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
@@ -55,8 +60,13 @@ import { StorageModule } from './storage/storage.module';
     PlatformModule,
     AccountingModule,
     PayrollModule,
+    ReportsModule,
+    FeedbackModule,
+    PromotionsModule,
     SupportModule,
     StorageModule,
+    PublicSalonsModule,
+    PushModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

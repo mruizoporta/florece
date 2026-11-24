@@ -40,7 +40,7 @@ export default function PlatformTenantNewPage() {
           planSlug: String(fd.get("planSlug") || "") || undefined,
           trialDays: Number(fd.get("trialDays") || 14),
           adminNote: String(fd.get("adminNote") || "") || undefined,
-          billingRegion: "NI",
+          billingRegion: String(fd.get("billingRegion") || "NI"),
           locale: "es",
         },
       });
@@ -85,6 +85,14 @@ export default function PlatformTenantNewPage() {
               className="input-field"
               required
             />
+          </div>
+          <div>
+            <label className="label-field">País</label>
+            <select name="billingRegion" className="input-field" defaultValue="NI">
+              <option value="NI">Nicaragua</option>
+              <option value="DO">República Dominicana</option>
+              <option value="US">Estados Unidos</option>
+            </select>
           </div>
           <div>
             <label className="label-field">Plan</label>

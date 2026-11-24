@@ -16,6 +16,8 @@ import {
   TabButton,
 } from "@/components/admin/AdminUi";
 import { salonTodayYmd } from "@/lib/dates";
+import { formatAppointmentTime } from "@/lib/format";
+import { useSalonMoney } from "@/components/admin/SalonMoneyProvider";
 import { employeeImageUrl } from "@/lib/images";
 
 const MAX_VISIBLE = 3;
@@ -53,17 +55,11 @@ function toLocalDate(d: Date) {
 
 function appointmentDayKey(startTime?: string | null) {
   if (!startTime) return "";
-  const d = new Date(startTime);
-  if (Number.isNaN(d.getTime())) return startTime.slice(0, 10);
-  return toLocalDate(d);
+  return startTime.slice(0, 10);
 }
 
 function formatTime(value: string | null | undefined, locale: Locale) {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString(dateLocale(locale), {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatAppointmentTime(value, locale);
 }
 
 function buildDays(start: Date, end: Date): Date[] {
@@ -80,13 +76,14 @@ export default function AdminCalendarPage() {
   const params = useParams();
   const slug = params.slug as string;
   const { tr, locale } = useLocale();
+  const { timeZone } = useSalonMoney();
   const [current, setCurrent] = useState(() => new Date());
   const [view, setView] = useState<"month" | "week">("month");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  const todayKey = salonTodayYmd();
+  const todayKey = salonTodayYmd(new Date(), timeZone);
   const weekdays = useMemo(() => weekdayShortLabels(locale), [locale]);
 
   const range = useMemo(() => {
@@ -260,7 +257,7 @@ export default function AdminCalendarPage() {
                     <span
                       className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
                         isToday
-                          ? "bg-brand-ink text-white"
+                          ? "bg-brand-primary text-brand-on-primary"
                           : "text-brand-text-muted group-hover:text-brand-ink"
                       }`}
                     >
@@ -277,7 +274,7 @@ export default function AdminCalendarPage() {
                     {visible.map((a) => (
                       <div
                         key={a.id}
-                        className="truncate rounded-lg bg-brand-primary/30 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-brand-ink"
+                        className="truncate rounded-md border-l-2 border-brand-primary bg-brand-primary/15 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-brand-ink"
                         title={`${formatTime(a.startTime, locale)} ${a.name}`}
                       >
                         <span className="tabular-nums opacity-80">

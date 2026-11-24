@@ -1,0 +1,80 @@
+{
+  "expo": {
+    "name": "Florece",
+    "slug": "florece",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "florece",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "backgroundColor": "#161412",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.galilinnovations.florece",
+      "associatedDomains": [
+        "applinks:floreceapp.com"
+      ],
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.florece.app",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#161412"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "floreceapp.com",
+              "pathPrefix": "/s"
+            },
+            {
+              "scheme": "https",
+              "host": "www.floreceapp.com",
+              "pathPrefix": "/s"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      "./plugins/portrait-opcional",
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#C4A574"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "icon": "./assets/icon.png",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9114d82a-15d3-4c1d-801a-1ea97b0204ac"
+      }
+    },
+    "owner": "mruizoporta"
+  }
+}

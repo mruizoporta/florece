@@ -388,7 +388,7 @@ export class PlatformService {
       planSlug?: string;
       trialDays?: number;
       adminNote?: string;
-      billingRegion?: 'NI' | 'US';
+      billingRegion?: 'NI' | 'US' | 'DO';
       locale?: 'es' | 'en';
       featureOverrides?: Partial<Record<FeatureKey, boolean>> | null;
     },
@@ -442,6 +442,7 @@ export class PlatformService {
     });
 
     await this.onboarding.bootstrapTenant(tenant.id, tenant.name);
+    await this.onboarding.applyMarketDefaults(tenant.id, input.billingRegion);
 
     const user = await this.prisma.user.create({
       data: {

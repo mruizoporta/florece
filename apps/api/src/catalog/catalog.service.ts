@@ -18,6 +18,17 @@ import { assertCanCreateWithinPlanLimitsOrThrow } from '../billing/plan-limits';
 
 export type ProductListFor = 'sale' | 'recipe' | 'all';
 
+/** Costo promedio ponderado tras un ingreso. Stock negativo o cero: manda el costo nuevo. */
+export function averageCost(
+  stock: number,
+  currentCost: number,
+  qty: number,
+  unitCost: number,
+) {
+  if (stock <= 0) return unitCost;
+  return Math.round(((stock * currentCost + qty * unitCost) / (stock + qty)) * 100) / 100;
+}
+
 @Injectable()
 export class CatalogService {
   constructor(
@@ -92,6 +103,7 @@ export class CatalogService {
     image?: string | null;
     status?: boolean;
     durationTime: number;
+    commissionRate?: number | null;
   }) {
     const tenantId = this.tenantId();
     await this.assertServiceLimit(tenantId);
@@ -114,6 +126,7 @@ export class CatalogService {
       data: {
         itemId: item.id,
         durationTime: data.durationTime,
+        commissionRate: this.checkRate(data.commissionRate),
         createdAt: now,
         updatedAt: now,
       },
@@ -149,6 +162,7 @@ export class CatalogService {
       image?: string | null;
       status: boolean;
       durationTime: number;
+      commissionRate?: number | null;
     },
   ) {
     const service = await this.requireService(serviceId);
@@ -168,7 +182,13 @@ export class CatalogService {
     });
     return this.prisma.service.update({
       where: { id: serviceId },
-      data: { durationTime: data.durationTime, updatedAt: now },
+      data: {
+        durationTime: data.durationTime,
+        ...(data.commissionRate !== undefined
+          ? { commissionRate: this.checkRate(data.commissionRate) }
+          : {}),
+        updatedAt: now,
+      },
       include: { item: { include: { category: true } } },
     });
   }
@@ -200,12 +220,15 @@ export class CatalogService {
       .findMany({
         where: {
           ...usageFilter,
-          item: {
-            tenantId,
-            ...(search
-              ? { name: { contains: search, mode: 'insensitive' } }
-              : {}),
-          },
+          item: { tenantId },
+          ...(search
+            ? {
+                OR: [
+                  { item: { name: { contains: search, mode: 'insensitive' } } },
+                  { barcode: search.trim() },
+                ],
+              }
+            : {}),
         },
         include: { item: { include: { category: true } } },
         take: Math.min(Math.max(limit, 1), 200),
@@ -229,9 +252,13 @@ export class CatalogService {
     minStock?: number;
     usage?: string;
     unit?: string;
+    barcode?: string | null;
+    cost?: number;
   }) {
     const tenantId = this.tenantId();
     const now = new Date();
+    const barcode = await this.checkBarcode(data.barcode);
+    const cost = this.checkCost(data.cost) ?? 0;
     const stock = Math.max(0, Math.floor(data.stock ?? 0));
     const minStock = Math.max(0, Math.floor(data.minStock ?? 0));
     const usage = normalizeProductUsage(data.usage);
@@ -257,6 +284,8 @@ export class CatalogService {
         minStock,
         usage,
         unit,
+        barcode,
+        cost,
         createdAt: now,
         updatedAt: now,
       },
@@ -272,6 +301,7 @@ export class CatalogService {
           quantity: stock,
           stockAfter: stock,
           reason: 'Stock inicial',
+          unitCost: cost || null,
           createdAt: now,
         },
       });
@@ -294,11 +324,18 @@ export class CatalogService {
       minStock?: number;
       usage?: string;
       unit?: string;
+      barcode?: string | null;
+      cost?: number;
     },
     userId?: bigint | null,
   ) {
     const product = await this.requireProduct(productId);
     const now = new Date();
+    const cost = this.checkCost(data.cost) ?? product.cost;
+    const barcode =
+      data.barcode !== undefined
+        ? await this.checkBarcode(data.barcode, productId)
+        : product.barcode;
     const minStock =
       data.minStock != null
         ? Math.max(0, Math.floor(data.minStock))
@@ -332,7 +369,7 @@ export class CatalogService {
       await this.prisma.$transaction(async (tx) => {
         await tx.product.update({
           where: { id: productId },
-          data: { stock: next, minStock, usage, unit, updatedAt: now },
+          data: { stock: next, minStock, usage, unit, barcode, cost, updatedAt: now },
         });
         await tx.inventoryMovement.create({
           data: {
@@ -350,7 +387,7 @@ export class CatalogService {
     } else {
       await this.prisma.product.update({
         where: { id: productId },
-        data: { minStock, usage, unit, updatedAt: now },
+        data: { minStock, usage, unit, barcode, cost, updatedAt: now },
       });
     }
 
@@ -376,7 +413,13 @@ export class CatalogService {
    */
   async adjustProductStock(
     productId: bigint,
-    data: { delta: number; reason?: string; type?: string },
+    data: {
+      delta: number;
+      reason?: string;
+      type?: string;
+      unitCost?: number | null;
+      supplier?: string | null;
+    },
     userId?: bigint | null,
   ) {
     const delta = Math.trunc(data.delta);
@@ -402,11 +445,20 @@ export class CatalogService {
       );
     }
 
+    // Solo los ingresos con costo mueven el promedio; ajustes y salidas no.
+    const unitCost =
+      type === 'receive' && delta > 0 ? this.checkCost(data.unitCost) : null;
+    const cost =
+      unitCost == null
+        ? product.cost
+        : averageCost(product.stock, Number(product.cost), delta, unitCost);
+    const supplier = type === 'receive' ? data.supplier?.trim().slice(0, 120) || null : null;
+
     const now = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await tx.product.update({
         where: { id: productId },
-        data: { stock: next, updatedAt: now },
+        data: { stock: next, cost, updatedAt: now },
         include: { item: { include: { category: true } } },
       });
       await tx.inventoryMovement.create({
@@ -418,6 +470,8 @@ export class CatalogService {
           quantity: delta,
           stockAfter: next,
           reason,
+          unitCost,
+          supplier,
           createdAt: now,
         },
       });
@@ -588,6 +642,7 @@ export class CatalogService {
   private mapService(service: {
     id: bigint;
     durationTime: number;
+    commissionRate?: Prisma.Decimal | null;
     item: Prisma.ItemGetPayload<{ include: { category: true } }>;
     consumables?: Array<{
       id: bigint;
@@ -605,10 +660,54 @@ export class CatalogService {
     return {
       id: Number(service.id),
       durationTime: service.durationTime,
+      commissionRate:
+        service.commissionRate == null ? null : Number(service.commissionRate),
       item: service.item,
       consumables: consumables ?? [],
       consumablesCount: consumables?.length ?? 0,
     };
+  }
+
+  /** Comisión propia del servicio: vacío = la de cada profesional. */
+  private checkRate(raw?: number | null) {
+    if (raw == null || (raw as unknown) === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      throw new BadRequestException('La comisión debe estar entre 0 y 100%');
+    }
+    return n;
+  }
+
+  private checkCost(raw?: number | null) {
+    if (raw == null || (raw as unknown) === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new BadRequestException('El costo debe ser un número mayor o igual a 0');
+    }
+    return Math.round(n * 100) / 100;
+  }
+
+  /** Normaliza el código y evita que dos productos del salón compartan el mismo (el lector no sabría cuál vender). */
+  private async checkBarcode(raw?: string | null, exceptId?: bigint) {
+    const barcode = raw?.trim() || null;
+    if (!barcode) return null;
+    if (barcode.length > 64) {
+      throw new BadRequestException('El código de barras es demasiado largo');
+    }
+    const taken = await this.prisma.product.findFirst({
+      where: {
+        barcode,
+        item: { tenantId: this.tenantId() },
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+      },
+      include: { item: true },
+    });
+    if (taken) {
+      throw new BadRequestException(
+        `Ese código ya lo tiene «${taken.item.name}»`,
+      );
+    }
+    return barcode;
   }
 
   private mapProduct(
@@ -626,6 +725,8 @@ export class CatalogService {
       lowStock,
       usage,
       unit,
+      barcode: product.barcode,
+      cost: Number(product.cost),
       sellable: isSellableUsage(usage),
       recipeEligible: isRecipeUsage(usage),
       item: product.item,

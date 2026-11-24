@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { ArrowRight, Check, Plus, Store } from "lucide-react";
 import {
+  AdminPageHeader,
   LoadingSpinner,
   MessageBanner,
 } from "@/components/admin/AdminUi";
@@ -22,7 +24,6 @@ export default function BranchesPage() {
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [name, setName] = useState("");
-  const [newSlug, setNewSlug] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error">("success");
@@ -50,16 +51,15 @@ export default function BranchesPage() {
         method: "POST",
         auth: true,
         tenantSlug: slug,
-        body: { name, slug: newSlug },
+        body: { name: name.trim(), slug: slugify(name) },
       });
       setMessageType("success");
       setMessage(`Sucursal “${created.name}” creada`);
       setName("");
-      setNewSlug("");
       await reload();
     } catch {
       setMessageType("error");
-      setMessage("No se pudo crear la sucursal (¿slug en uso?)");
+      setMessage("No se pudo crear la sucursal. Probá con otro nombre: puede que ya exista uno igual.");
     } finally {
       setSaving(false);
     }
@@ -78,90 +78,96 @@ export default function BranchesPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="mx-auto max-w-3xl pb-16">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-brand-ink">Sucursales</h1>
-        <p className="mt-2 text-sm text-brand-text-muted">
-          Cada sucursal tiene su propia caja, clientes y catálogo. La suscripción
-          Florece es única para toda la cuenta.
-        </p>
-      </div>
+    <div className="pb-16">
+      <AdminPageHeader
+        title="Sucursales"
+        subtitle="Cada sucursal tiene su propia agenda, caja, clientes y catálogo. La suscripción es una sola para toda la cuenta."
+      />
 
       {message ? (
         <MessageBanner type={messageType} message={message} />
       ) : null}
 
-      <div className="mb-10 overflow-hidden rounded-2xl border border-brand-ink/[0.06] bg-brand-elevated/70">
-        <ul>
-          {branches.map((branch) => (
-            <li
+      <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {branches.map((branch) => {
+          const current = branch.slug === slug;
+          return (
+            <button
               key={branch.id}
-              className="flex items-center justify-between gap-3 border-b border-brand-ink/[0.04] px-4 py-3 last:border-0"
+              type="button"
+              onClick={() => goToBranch(branch)}
+              className={`admin-card group flex flex-col gap-5 text-left transition hover:-translate-y-0.5 hover:border-brand-primary/40 ${
+                current ? "!border-brand-primary/50 ring-1 ring-brand-primary/30" : ""
+              }`}
             >
-              <div>
-                <p className="font-medium text-brand-ink">{branch.name}</p>
-                <p className="text-xs text-brand-text-muted">/{branch.slug}</p>
+              <div className="flex items-start justify-between gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-primary/20 text-brand-primary-dark">
+                  <Store size={20} strokeWidth={1.8} />
+                </span>
+                {current ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary/20 px-2.5 py-1 text-[11px] font-semibold text-brand-primary-dark">
+                    <Check size={12} strokeWidth={2.5} />
+                    Actual
+                  </span>
+                ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => goToBranch(branch)}
-                className="rounded-xl border border-brand-ink/10 px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-brand-ink/[0.04]"
-              >
-                {branch.slug === slug ? "Actual" : "Entrar"}
-              </button>
-            </li>
-          ))}
-        </ul>
+              <div>
+                <p className="font-serif text-xl text-brand-ink">{branch.name}</p>
+                <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-brand-text-muted transition group-hover:text-brand-ink">
+                  {current ? "Ir al panel" : "Entrar"}
+                  <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {isOwner ? (
-        <form
-          onSubmit={handleCreate}
-          className="rounded-2xl border border-brand-ink/[0.06] bg-brand-elevated/70 p-5"
-        >
-          <h2 className="font-serif text-xl text-brand-ink">Agregar sucursal</h2>
-          <p className="mt-1 text-sm text-brand-text-muted">
-            Se crea vacía: agenda, caja y catálogo propios.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              <span className="mb-1 block text-brand-text-muted">Nombre</span>
+        <form onSubmit={handleCreate} className="admin-card max-w-2xl !p-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-primary/20 text-brand-primary-dark">
+              <Plus size={18} strokeWidth={2} />
+            </span>
+            <div>
+              <h2 className="font-serif text-xl text-brand-ink">Agregar sucursal</h2>
+              <p className="text-sm text-brand-text-muted">
+                Se crea vacía, con su propia agenda, caja y catálogo.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="flex-1">
+              <span className="label-field">Nombre de la sucursal</span>
               <input
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-brand-ink/10 px-3 py-2"
-                placeholder="Sucursal Centro"
+                className="input-field"
+                placeholder="Ej. Sucursal Centro"
               />
             </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-brand-text-muted">Slug (URL)</span>
-              <input
-                required
-                value={newSlug}
-                onChange={(e) =>
-                  setNewSlug(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]/g, "-")
-                      .replace(/-+/g, "-"),
-                  )
-                }
-                className="w-full rounded-xl border border-brand-ink/10 px-3 py-2"
-                placeholder="centro"
-                pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
-              />
-            </label>
+            <button
+              type="submit"
+              disabled={saving || !slugify(name)}
+              className="btn-primary shrink-0 disabled:opacity-50"
+            >
+              {saving ? "Creando…" : "Crear sucursal"}
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn-primary mt-4"
-          >
-            {saving ? "Creando…" : "Crear sucursal"}
-          </button>
         </form>
       ) : null}
     </div>
   );
+}
+
+// Dirección interna de la sucursal, derivada del nombre: el usuario no la ve.
+function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
 }

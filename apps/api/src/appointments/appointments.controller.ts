@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  NotFoundException,
   Get,
   Param,
   Patch,
@@ -16,14 +17,13 @@ import {
   RoleName,
   type CreateAppointmentInput,
 } from '@florece/shared';
-import { Public } from '../common/decorators/public.decorator';
+import { Public, SkipTenant } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequireFeature } from '../common/decorators/feature.decorator';
 import { FeatureGuard } from '../common/guards/feature.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AppointmentsService } from './appointments.service';
-import { salonTodayYmd } from '../common/date';
 import type { AuthUser } from '../common/types/auth.types';
 
 @ApiTags('appointments')
@@ -48,7 +48,7 @@ export class AppointmentsController {
     );
   }
 
-  @Roles('Admin', 'Recepcionista')
+  @Roles('Admin', 'Recepcionista', 'Cajero', 'Estilista')
   @Get('statuses')
   listStatuses() {
     return this.appointmentsService.listStatuses();
@@ -72,7 +72,7 @@ export class AppointmentsController {
     return this.appointmentsService.search(q, limit ? Number(limit) : 50);
   }
 
-  @Roles('Admin', 'Recepcionista', 'Estilista')
+  @Roles('Admin', 'Recepcionista', 'Cajero', 'Estilista')
   @Get()
   index(
     @CurrentUser() user: AuthUser,
@@ -80,39 +80,39 @@ export class AppointmentsController {
     @Query('status_ids') statusIds?: string,
     @Query('employee_id') employeeId?: string,
   ) {
-    const resolvedDate = date ?? salonTodayYmd();
     const ids = statusIds
       ? statusIds.split(',').map((value) => Number(value.trim()))
       : undefined;
 
-    const isStylistOnly =
-      user.roles.includes(RoleName.Estilista) &&
-      !user.roles.includes(RoleName.Admin) &&
-      !user.roles.includes(RoleName.Recepcionista);
-
     let scopedEmployeeId: number | undefined;
-    if (isStylistOnly) {
-      if (user.employeeId == null) {
-        throw new ForbiddenException(
-          'Tu usuario no está vinculado a un profesional del equipo',
-        );
-      }
-      scopedEmployeeId = Number(user.employeeId);
+    const propio = soloSusCitas(user);
+    if (propio != null) {
+      scopedEmployeeId = propio;
     } else if (employeeId) {
       scopedEmployeeId = Number(employeeId);
     }
 
-    return this.appointmentsService.listByDate(
-      resolvedDate,
-      ids,
-      scopedEmployeeId,
-    );
+    return this.appointmentsService.listByDate(date, ids, scopedEmployeeId);
   }
 
-  @Roles('Admin', 'Recepcionista')
+  @Public()
+  @SkipTenant()
+  @Get('view/:token')
+  viewByToken(@Param('token') token: string) {
+    return this.appointmentsService.viewByToken(token);
+  }
+
+  @Roles('Admin', 'Recepcionista', 'Cajero', 'Estilista')
   @Get(':id')
-  show(@Param('id') id: string) {
-    return this.appointmentsService.getAppointment(BigInt(id));
+  async show(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const detalle = await this.appointmentsService.getAppointmentDetail(
+      BigInt(id),
+    );
+    const propio = soloSusCitas(user);
+    if (propio != null && Number(detalle.employeeId) !== propio) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+    return detalle;
   }
 
   @Public()
@@ -184,4 +184,19 @@ export class AppointmentsController {
       BigInt(body.employee_id),
     );
   }
+}
+
+/** Estilista sin rol de agenda: solo ve sus citas. Devuelve su profesional, o null si ve todo. */
+function soloSusCitas(user: AuthUser): number | null {
+  const soloEstilista =
+    user.roles.includes(RoleName.Estilista) &&
+    !user.roles.includes(RoleName.Admin) &&
+    !user.roles.includes(RoleName.Recepcionista);
+  if (!soloEstilista) return null;
+  if (user.employeeId == null) {
+    throw new ForbiddenException(
+      'Tu usuario no está vinculado a un profesional del equipo',
+    );
+  }
+  return Number(user.employeeId);
 }

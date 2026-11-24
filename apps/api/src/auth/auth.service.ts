@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -24,11 +25,14 @@ import {
   LARAVEL_USER_MODEL,
 } from '../common/types/auth.types';
 import { OnboardingService } from './onboarding.service';
+import { MailService } from '../mail/mail.service';
 import { TenantService } from '../tenant/tenant.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import type { TenantWithOrganization } from '../organizations/organizations.types';
 
 const REFRESH_COOKIE = 'refresh_token';
+const RESET_TTL_MS = 60 * 60 * 1000;
+const RESET_COOLDOWN_MS = 2 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -41,9 +45,42 @@ export class AuthService {
     private readonly onboarding: OnboardingService,
     private readonly tenantService: TenantService,
     private readonly organizations: OrganizationsService,
+    private readonly mail: MailService,
   ) {}
 
-  async login(input: LoginInput) {
+  async login(input: LoginInput): Promise<
+    | Awaited<ReturnType<AuthService['loginToTenant']>>
+    | { needsSalon: true; salons: { slug: string; name: string }[] }
+  > {
+    if (input.tenantSlug) {
+      return this.loginToTenant({ ...input, tenantSlug: input.tenantSlug });
+    }
+
+    // Sin código: el correo puede tener cuenta en varios salones, cada una con su
+    // contraseña. Solo cuentan las cuentas cuya contraseña coincide.
+    const candidates = await this.findUsersByEmail(input.email);
+    const matches: typeof candidates = [];
+    for (const user of candidates) {
+      if (await bcrypt.compare(input.password, user.password)) matches.push(user);
+    }
+    if (matches.length === 0) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    if (matches.length > 1) {
+      return {
+        needsSalon: true,
+        salons: matches.map((u) => ({ slug: u.tenant.slug, name: u.tenant.name })),
+      };
+    }
+    // tenantId es la última sucursal usada; desde ahí puede cambiar de sucursal.
+    return this.loginToTenant({
+      tenantSlug: matches[0].tenant.slug,
+      email: matches[0].email,
+      password: input.password,
+    });
+  }
+
+  private async loginToTenant(input: Required<LoginInput>) {
     const tenant = await this.tenantService.requireBySlug(input.tenantSlug);
     const user = await this.findUserForBranch(tenant.id, input.email);
 
@@ -277,6 +314,7 @@ export class AuthService {
     });
 
     await this.onboarding.bootstrapTenant(tenant.id, tenant.name);
+    await this.onboarding.applyMarketDefaults(tenant.id, input.billingRegion);
 
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = await this.prisma.user.create({
@@ -314,23 +352,80 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(email: string, tenantSlug: string) {
-    const tenant = await this.tenantService.requireBySlug(tenantSlug);
-    const user = await this.findUserForBranch(tenant.id, email);
+  async forgotPassword(email: string, tenantSlug?: string) {
+    // Siempre la misma respuesta: no revela si el correo tiene cuenta.
+    if (tenantSlug) {
+      const tenant = await this.tenantService.requireBySlug(tenantSlug);
+      const user = await this.findUserForBranch(tenant.id, email);
+      if (user) await this.sendResetLink(user, tenant);
+      return { ok: true };
+    }
+
+    // Sin código: un enlace por cada cuenta con ese correo (cada una tiene su contraseña).
+    const users = await this.findUsersByEmail(email);
+    for (const user of users) await this.sendResetLink(user, user.tenant);
+    return { ok: true };
+  }
+
+  private async sendResetLink(
+    user: { id: bigint; email: string; name: string },
+    tenant: { name: string; slug: string },
+  ) {
+    // Anti-spam: un correo cada 2 minutos por usuario.
+    const recent = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        createdAt: { gt: new Date(Date.now() - RESET_COOLDOWN_MS) },
+      },
+    });
+    if (recent) return { ok: true };
 
     const token = crypto.randomBytes(32).toString('hex');
-    if (user) {
-      this.logger.log(
-        `Password reset token for ${email}@${tenantSlug}: ${token}`,
-      );
-    }
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: this.hashToken(token),
+        expiresAt: new Date(Date.now() + RESET_TTL_MS),
+      },
+    });
+
+    const appUrl = this.config.get<string>('APP_URL', 'http://localhost:3000').replace(/\/$/, '');
+    const link = `${appUrl}/restablecer-contrasena?token=${token}`;
+    await this.mail.send({
+      to: user.email,
+      subject: 'Restablecé tu contraseña de Florece',
+      text:
+        `Hola ${user.name},\n\n` +
+        `Pediste restablecer tu contraseña en ${tenant.name} (código: ${tenant.slug}).\n` +
+        `Abrí este enlace para elegir una nueva (vence en 1 hora):\n\n${link}\n\n` +
+        `Si no fuiste vos, ignorá este correo; tu contraseña no cambia.`,
+    });
 
     return { ok: true };
   }
 
   async resetPassword(token: string, password: string) {
-    this.logger.log(`Password reset stub invoked with token: ${token}`);
-    void password;
+    const stored = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash: this.hashToken(token) },
+    });
+    if (!stored || stored.usedAt || stored.expiresAt < new Date()) {
+      throw new BadRequestException('Reset link is invalid or expired');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await this.prisma.$transaction(async (tx) => {
+      // Condicional: dos envíos simultáneos del mismo enlace no pasan los dos.
+      const claimed = await tx.passwordResetToken.updateMany({
+        where: { id: stored.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      if (claimed.count === 0) throw new BadRequestException('Reset link is invalid or expired');
+      await tx.user.update({ where: { id: stored.userId }, data: { password: passwordHash } });
+      // Invalida otros enlaces pendientes y cierra las sesiones abiertas.
+      await tx.passwordResetToken.deleteMany({ where: { userId: stored.userId, usedAt: null } });
+      await tx.refreshToken.deleteMany({ where: { userId: stored.userId } });
+    });
+
     return { ok: true };
   }
 
@@ -427,6 +522,14 @@ export class AuthService {
 
   getRefreshCookieName(): string {
     return REFRESH_COOKIE;
+  }
+
+  private findUsersByEmail(email: string) {
+    return this.prisma.user.findMany({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      include: { tenant: true },
+      take: 10, // tope de comparaciones bcrypt por intento
+    });
   }
 
   private async findUserForBranch(tenantId: bigint, email: string) {

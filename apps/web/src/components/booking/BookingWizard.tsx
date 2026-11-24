@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  BadgePercent,
   CalendarDays,
   Check,
   Clock3,
   Scissors,
+  Search,
   UserRound,
 } from "lucide-react";
 import { createAppointmentSchema } from "@florece/shared";
@@ -64,6 +66,19 @@ export function BookingWizard({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
+  const [promos, setPromos] = useState<Array<{ id: number; name: string; summary: string }>>([]);
+
+  useEffect(() => {
+    api<Array<{ id: number; name: string; summary: string }>>("/v1/promotions/public", { tenantSlug: slug })
+      .then(setPromos)
+      .catch(() => setPromos([]));
+  }, [slug]);
+  const [waitlistDone, setWaitlistDone] = useState<string | null>(null);
+  const [worksThatDay, setWorksThatDay] = useState(true);
+  const [category, setCategory] = useState<string | null>(null);
 
   const stepIndex = STEPS.indexOf(step);
   const chosenServices = useMemo(
@@ -78,6 +93,18 @@ export function BookingWizard({
     () => chosenServices.reduce((sum, s) => sum + Number(s.price || 0), 0),
     [chosenServices],
   );
+  const categories = useMemo(
+    () => [...new Set(services.map((s) => s.categoryName).filter(Boolean))] as string[],
+    [services],
+  );
+  const visibleServices = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return services.filter(
+      (s) =>
+        (!category || s.categoryName === category) &&
+        (!needle || s.name.toLowerCase().includes(needle)),
+    );
+  }, [services, query, category]);
   const selectedEmployee = employees.find((e) => e.id === employeeId);
   const employeePhoto = employeeImageUrl(selectedEmployee?.image);
 
@@ -96,6 +123,7 @@ export function BookingWizard({
         { tenantSlug: slug },
       );
       setSlots(data.slots ?? []);
+      setWorksThatDay(data.hasSchedule !== false);
     } catch (e) {
       setSlots([]);
       setError(
@@ -129,6 +157,31 @@ export function BookingWizard({
   function back() {
     const idx = STEPS.indexOf(step);
     if (idx > 0) setStep(STEPS[idx - 1]);
+  }
+
+  async function joinWaitlist(e: React.FormEvent) {
+    e.preventDefault();
+    setJoiningWaitlist(true);
+    setError(null);
+    try {
+      await api("/v1/waitlist/public", {
+        method: "POST",
+        tenantSlug: slug,
+        body: {
+          name,
+          phone,
+          email: waitlistEmail || null,
+          date,
+          employee_id: employeeId,
+          service_ids: selectedServices,
+        },
+      });
+      setWaitlistDone(date);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo anotar");
+    } finally {
+      setJoiningWaitlist(false);
+    }
   }
 
   async function submit() {
@@ -207,6 +260,19 @@ export function BookingWizard({
 
   return (
     <div>
+      {promos.length > 0 && step === "services" ? (
+        <ul className="mb-6 space-y-2" aria-label="Promociones">
+          {promos.map((p) => (
+            <li key={p.id} className="flex items-start gap-3 rounded-2xl bg-brand-warm px-4 py-3 text-sm">
+              <BadgePercent size={18} className="mt-0.5 shrink-0 text-brand-ink" />
+              <span>
+                <span className="font-semibold text-brand-ink">{p.name}</span>
+                <span className="block text-brand-text-muted">{p.summary}. Se descuenta al pagar en el salón.</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="mb-9">
         <div className="mb-6 flex gap-2">
           {STEPS.map((s, i) => {
@@ -241,29 +307,74 @@ export function BookingWizard({
         <p className="text-sm font-medium text-[#1a1a1a]/45">
           {stepIndex + 1}
           <span className="text-[#1a1a1a]/25"> / {STEPS.length}</span>
-          <span className="mx-2 text-[#1a1a1a]/2">·</span>
+          <span className="mx-2 text-[#1a1a1a]/25">·</span>
           <span className="text-[#1a1a1a]/55">{stepLabels[step]}</span>
         </p>
         <h2 className="salon-title mt-2 font-serif text-[2.4rem] leading-[1.05] font-medium tracking-tight sm:text-5xl">
           {stepLabels[step]}
         </h2>
         {stepHints[step] ? (
-          <p className="mt-3 max-w-lg text-[16px] leading-relaxed text-[#1a1a1a]/5">
+          <p className="mt-3 max-w-lg text-[16px] leading-relaxed text-[#1a1a1a]/55">
             {stepHints[step]}
           </p>
         ) : null}
       </div>
 
       <div key={step} className="booking-step-enter">
+        {step === "services" && services.length > 6 ? (
+          <div className="mb-5 space-y-3">
+            <div className="relative">
+              <Search
+                size={17}
+                className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[#1a1a1a]/35"
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={locale === "en" ? "Search a service…" : "Buscar un servicio…"}
+                className="w-full rounded-full bg-white/70 py-3.5 pr-4 pl-11 text-[15px] text-[#1a1a1a] ring-1 ring-black/[0.06] outline-none placeholder:text-[#1a1a1a]/35 focus:bg-white focus:ring-black/15"
+              />
+            </div>
+            {categories.length > 1 ? (
+              <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+                {[null, ...categories].map((c) => {
+                  const active = category === c;
+                  return (
+                    <button
+                      key={c ?? "all"}
+                      type="button"
+                      onClick={() => setCategory(c)}
+                      className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+                        active
+                          ? "salon-btn"
+                          : "bg-white/55 text-[#1a1a1a]/60 ring-1 ring-black/[0.05] hover:bg-white hover:text-[#1a1a1a]"
+                      }`}
+                    >
+                      {c ?? (locale === "en" ? "All" : "Todos")}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {step === "services" && visibleServices.length === 0 ? (
+          <p className="py-10 text-center text-[15px] text-[#1a1a1a]/50">
+            {locale === "en" ? "No services match your search." : "No hay servicios que coincidan."}
+          </p>
+        ) : null}
+
         {step === "services" && (
           <ul className="space-y-2.5">
-            {services.map((s, idx) => {
+            {visibleServices.map((s, idx) => {
               const selected = selectedServices.includes(s.id);
               return (
                 <li
                   key={s.id}
                   className="booking-row"
-                  style={{ animationDelay: `${idx * 45}ms` }}
+                  style={{ animationDelay: `${Math.min(idx, 8) * 45}ms` }}
                 >
                   <button
                     type="button"
@@ -376,7 +487,7 @@ export function BookingWizard({
                 }}
               />
               {date ? (
-                <p className="mt-3 capitalize text-[15px] text-[#1a1a1a]/5">
+                <p className="mt-3 capitalize text-[15px] text-[#1a1a1a]/55">
                   {formatPrettyDate(date, locale)}
                 </p>
               ) : null}
@@ -389,7 +500,7 @@ export function BookingWizard({
                   {tr("booking.selectTime")}
                 </p>
                 {loadingSlots ? (
-                  <p className="text-sm text-[#1a1a1a]/5">Cargando…</p>
+                  <p className="text-sm text-[#1a1a1a]/55">Cargando…</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {slots.map((s, idx) => {
@@ -414,9 +525,55 @@ export function BookingWizard({
                   </div>
                 )}
                 {!loadingSlots && slots.length === 0 ? (
-                  <p className="mt-2 text-sm text-[#1a1a1a]/5">
-                    {tr("booking.noSlots")}
-                  </p>
+                  <div className="mt-2">
+                    <p className="text-sm text-[#1a1a1a]/55">
+                      {worksThatDay ? tr("booking.noSlots") : `${selectedEmployee?.name ?? "La profesional"} no atiende ese día. Probá con otra fecha.`}
+                    </p>
+                    {!worksThatDay ? null : waitlistDone === date ? (
+                      <p className="mt-4 rounded-[1.1rem] bg-white/70 px-4 py-3 text-sm text-[#1a1a1a]" role="status">
+                        ¡Listo! Si se libera un horario ese día te avisamos.
+                      </p>
+                    ) : (
+                      <form
+                        onSubmit={joinWaitlist}
+                        className="mt-4 space-y-2.5 rounded-[1.25rem] bg-white/60 p-4 ring-1 ring-black/[0.05]"
+                      >
+                        <p className="text-sm font-medium text-[#1a1a1a]">¿Te avisamos si se libera un horario ese día?</p>
+                        <input
+                          className="booking-input w-full rounded-[1rem] border-0 px-4 py-3 text-sm text-[#1a1a1a] outline-none"
+                          placeholder="Tu nombre"
+                          aria-label="Tu nombre"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          required
+                        />
+                        <input
+                          className="booking-input w-full rounded-[1rem] border-0 px-4 py-3 text-sm text-[#1a1a1a] outline-none"
+                          placeholder="WhatsApp o teléfono"
+                          aria-label="WhatsApp o teléfono"
+                          inputMode="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          required
+                        />
+                        <input
+                          className="booking-input w-full rounded-[1rem] border-0 px-4 py-3 text-sm text-[#1a1a1a] outline-none"
+                          placeholder="Correo (opcional, para avisarte al instante)"
+                          aria-label="Correo (opcional)"
+                          type="email"
+                          value={waitlistEmail}
+                          onChange={(e) => setWaitlistEmail(e.target.value)}
+                        />
+                        <button
+                          type="submit"
+                          disabled={joiningWaitlist}
+                          className="salon-slot-on w-full rounded-[1rem] px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                        >
+                          {joiningWaitlist ? "Anotando…" : "Avisame si se libera"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -488,7 +645,7 @@ export function BookingWizard({
               <div className="flex gap-4 px-4 py-5">
                 <Scissors size={18} className="mt-0.5 shrink-0 text-[#1a1a1a]/35" />
                 <div className="min-w-0">
-                  <p className="text-sm text-[#1a1a1a]/5">
+                  <p className="text-sm text-[#1a1a1a]/55">
                     {tr("booking.step.services")}
                   </p>
                   <p className="mt-1 text-[16px] font-medium text-[#1a1a1a]">
@@ -512,7 +669,7 @@ export function BookingWizard({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-[#1a1a1a]/5">
+                  <p className="text-sm text-[#1a1a1a]/55">
                     {tr("booking.step.employee")}
                   </p>
                   <p className="mt-1 text-[16px] font-medium text-[#1a1a1a]">
@@ -526,7 +683,7 @@ export function BookingWizard({
                   className="mt-0.5 shrink-0 text-[#1a1a1a]/35"
                 />
                 <div className="min-w-0">
-                  <p className="text-sm text-[#1a1a1a]/5">
+                  <p className="text-sm text-[#1a1a1a]/55">
                     {tr("booking.step.datetime")}
                   </p>
                   <p className="mt-1 text-[16px] font-medium capitalize text-[#1a1a1a]">
@@ -540,7 +697,7 @@ export function BookingWizard({
                   className="mt-0.5 shrink-0 text-[#1a1a1a]/35"
                 />
                 <div className="min-w-0">
-                  <p className="text-sm text-[#1a1a1a]/5">
+                  <p className="text-sm text-[#1a1a1a]/55">
                     {tr("booking.step.contact")}
                   </p>
                   <p className="mt-1 text-[16px] font-medium text-[#1a1a1a]">
@@ -574,9 +731,9 @@ export function BookingWizard({
             )}
             <div className="flex items-center gap-4">
               {selectedServices.length > 0 ? (
-                <div className="hidden text-right sm:block">
-                  <p className="text-[11px] font-medium tracking-wide text-[#1a1a1a]/4 uppercase">
-                    {tr("booking.summary")}
+                <div className="text-right">
+                  <p className="text-[11px] font-medium tracking-wide text-[#1a1a1a]/45 uppercase">
+                    {selectedServices.length} · {totalDuration} min
                   </p>
                   <p className="font-serif text-xl tabular-nums text-[#1a1a1a]">
                     {formatPrice(money, totalPrice)}

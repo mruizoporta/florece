@@ -124,9 +124,11 @@ export function AdminShell({
                 {status?.planName
                   ? `Plan ${status.planName}`
                   : "Sin plan"}
-                {status?.daysRemaining != null
-                  ? ` · ${status.daysRemaining}d`
-                  : ""}
+                {status?.daysRemaining == null
+                  ? ""
+                  : status.daysRemaining < 0
+                    ? ` · Vencido hace ${-status.daysRemaining} ${status.daysRemaining === -1 ? "día" : "días"}`
+                    : ` · ${status.daysRemaining} ${status.daysRemaining === 1 ? "día restante" : "días restantes"}`}
                 {userName ? ` · ${userName}` : ""}
               </p>
             </div>

@@ -12,13 +12,14 @@ import {
   AdminTable,
   LoadingSpinner,
 } from "@/components/admin/AdminUi";
-import { formatDateTime } from "@/lib/format";
+import { formatAppointmentDateTime } from "@/lib/format";
+import { CustomerTechnicalFile } from "@/components/admin/CustomerTechnicalFile";
 
 function statusTone(name?: string | null) {
   if (!name) return "muted" as const;
   const n = name.toLowerCase();
   if (n.includes("conclu") || n.includes("final")) return "success" as const;
-  if (n.includes("cancel")) return "danger" as const;
+  if (n.includes("cancel") || n.includes("present")) return "danger" as const;
   return "primary" as const;
 }
 
@@ -41,7 +42,7 @@ export default function AdminCustomerDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
   const id = params.id as string;
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [customer, setCustomer] = useState<(Customer & { allergies?: string | null }) | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +51,7 @@ export default function AdminCustomerDetailPage() {
       try {
         const c = await api<
           Customer & {
+            allergies?: string | null;
             appointments?: Appointment[];
             user?: { name?: string; email?: string };
           }
@@ -88,6 +90,7 @@ export default function AdminCustomerDetailPage() {
   }
 
   const initial = (customer.name ?? "?").charAt(0).toUpperCase();
+  const noShows = appointments.filter((a) => a.status?.name === "No se presentó").length;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -111,6 +114,11 @@ export default function AdminCustomerDetailPage() {
               {appointments.length}{" "}
               {appointments.length === 1 ? "cita" : "citas"} en el historial
             </p>
+            {noShows > 0 ? (
+              <p className="mt-2 inline-flex rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-700">
+                No se presentó {noShows} {noShows === 1 ? "vez" : "veces"} sin avisar
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -145,6 +153,15 @@ export default function AdminCustomerDetailPage() {
         </div>
       </div>
 
+      <CustomerTechnicalFile
+        slug={slug}
+        customerId={id}
+        initialAllergies={customer.allergies ?? null}
+        serviceSuggestions={[
+          ...new Set(appointments.flatMap((a) => (serviceLabel(a) ?? "").split(" · ")).filter(Boolean)),
+        ]}
+      />
+
       <div>
         <h2 className="mb-1 text-sm font-semibold text-brand-ink">
           Historial de citas
@@ -160,7 +177,7 @@ export default function AdminCustomerDetailPage() {
           {appointments.map((a) => (
             <tr key={a.id} className="transition hover:bg-brand-warm/80">
               <td className="px-5 py-4 text-brand-ink">
-                {formatDateTime(a.startTime)}
+                {formatAppointmentDateTime(a.startTime)}
               </td>
               <td className="px-5 py-4 text-sm text-brand-text-muted">
                 {serviceLabel(a) ?? a.name ?? "—"}

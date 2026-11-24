@@ -7,6 +7,7 @@ import { ArrowLeft, Upload } from "lucide-react";
 import { api, apiUpload } from "@/lib/api";
 import type { PublicEmployee, ScheduleEntry } from "@/lib/types";
 import { WEEKDAYS } from "@/lib/format";
+import { useSalonMoney } from "@/components/admin/SalonMoneyProvider";
 import {
   AdminSection,
   LoadingSpinner,
@@ -22,6 +23,13 @@ type ScheduleRow = {
   status: boolean;
 };
 
+/** La API devuelve la hora como fecha ISO (1970-01-01T09:00:00.000Z) o «09:00». */
+function hhmm(value: string | null | undefined, fallback: string) {
+  if (!value) return fallback;
+  const time = value.includes("T") ? value.slice(11, 16) : value.slice(0, 5);
+  return /^\d{2}:\d{2}$/.test(time) ? time : fallback;
+}
+
 const emptySchedule = (): ScheduleRow[] =>
   WEEKDAYS.map((d) => ({
     weekday: d.value,
@@ -35,6 +43,7 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
   const router = useRouter();
   const slug = params.slug as string;
   const { tr } = useLocale();
+  const { currencySymbol } = useSalonMoney();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -43,6 +52,7 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
   const [email, setEmail] = useState("");
   const [baseSalary, setBaseSalary] = useState("0");
   const [commissionRate, setCommissionRate] = useState("0");
+  const [productCommissionRate, setProductCommissionRate] = useState("0");
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
   const [schedule, setSchedule] = useState<ScheduleRow[]>(emptySchedule());
@@ -71,21 +81,15 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
         setEmail(emp.personalInfo?.email ?? emp.email ?? "");
         setBaseSalary(String(emp.baseSalary ?? 0));
         setCommissionRate(String(emp.commissionRate ?? 0));
+        setProductCommissionRate(String(emp.productCommissionRate ?? 0));
         if (sched.length > 0) {
           setSchedule(
             WEEKDAYS.map((d) => {
               const row = sched.find((s) => s.weekday === d.value);
               return {
                 weekday: d.value,
-                start_time: (
-                  row?.startTime ??
-                  row?.start_time ??
-                  "09:00"
-                ).slice(0, 5),
-                end_time: (row?.endTime ?? row?.end_time ?? "18:00").slice(
-                  0,
-                  5,
-                ),
+                start_time: hhmm(row?.startTime ?? row?.start_time, "09:00"),
+                end_time: hhmm(row?.endTime ?? row?.end_time, "18:00"),
                 status: row?.status ?? false,
               };
             }),
@@ -125,6 +129,7 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
         status: true,
         base_salary: Number(baseSalary) || 0,
         commission_rate: Number(commissionRate) || 0,
+        product_commission_rate: Number(productCommissionRate) || 0,
       };
       if (id) {
         await api(`/v1/employees/${id}`, {
@@ -309,11 +314,13 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
 
           <AdminSection
             title="Compensación"
-            description="Salario base mensual y comisión solo sobre servicios."
+            description="Salario base mensual y comisiones. Un servicio puede tener su propio % en el catálogo."
           >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="label-field">Salario base (C$/mes)</label>
+                <label className="label-field">
+                  Salario base ({currencySymbol}/mes)
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -333,6 +340,21 @@ export function EmployeeForm({ employeeId }: { employeeId?: number }) {
                   className="input-field !rounded-2xl"
                   value={commissionRate}
                   onChange={(e) => setCommissionRate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label-field" htmlFor="product-commission">
+                  Comisión productos (%)
+                </label>
+                <input
+                  id="product-commission"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  className="input-field !rounded-2xl"
+                  value={productCommissionRate}
+                  onChange={(e) => setProductCommissionRate(e.target.value)}
                 />
               </div>
             </div>

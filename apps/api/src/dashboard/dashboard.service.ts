@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
 import { APPOINTMENT_STATUS_NAMES } from '../appointments/appointments.service';
-import { salonDayBounds, salonTodayYmd } from '../common/date';
+import { billingRegionOf, salonDayBounds, salonTodayYmd } from '../common/date';
 
 @Injectable()
 export class DashboardService {
@@ -17,8 +17,15 @@ export class DashboardService {
   }
 
   async getSummary(date?: string) {
-    const resolvedDate = date ?? salonTodayYmd();
-    const { start: dayStart, end: dayEnd } = salonDayBounds(resolvedDate);
+    const region = billingRegionOf(this.tenantContext.getTenant());
+    const resolvedDate =
+      date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? date
+        : salonTodayYmd(new Date(), region);
+    const { start: dayStart, end: dayEnd } = salonDayBounds(
+      resolvedDate,
+      region,
+    );
     const tenantId = this.tenantId();
 
     const [waitingStatus, pendingStatus] = await Promise.all([

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1015272558703",
+    "project_id": "florece-bf996",
+    "storage_bucket": "florece-bf996.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1015272558703:android:2e3608e62b320013ecbd9a",
+        "android_client_info": {
+          "package_name": "com.florece.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2prA-PL7mbp7_9k_N_XO0VZg5DlcOsNY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

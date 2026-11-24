@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Phone, Mail } from "lucide-react";
+import Link from "next/link";
+import { Heart, Phone, Mail } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Customer } from "@/lib/types";
 import {
@@ -56,6 +57,15 @@ export default function AdminCustomersPage() {
       <AdminPageHeader
         title={tr("admin.customers")}
         subtitle="Personas que han agendado o visitado el salón."
+        action={
+          <Link
+            href={`/s/${slug}/admin/customers/inactive`}
+            className="btn-secondary inline-flex items-center gap-2 py-2.5 text-sm"
+          >
+            <Heart size={15} />
+            Recuperar clientas
+          </Link>
+        }
       />
 
       <AdminToolbar>

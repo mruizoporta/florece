@@ -58,6 +58,7 @@ export class CatalogController {
       status?: boolean;
       duration_time?: number;
       durationTime?: number;
+      commission_rate?: number | null;
     },
   ) {
     return this.catalogService.createService({
@@ -69,6 +70,7 @@ export class CatalogController {
       image: body.image,
       status: body.status,
       durationTime: body.duration_time ?? body.durationTime ?? 30,
+      commissionRate: body.commission_rate,
     });
   }
 
@@ -88,6 +90,7 @@ export class CatalogController {
       status: boolean;
       duration_time?: number;
       durationTime?: number;
+      commission_rate?: number | null;
     },
   ) {
     return this.catalogService.updateService(BigInt(id), {
@@ -99,6 +102,7 @@ export class CatalogController {
       image: body.image,
       status: body.status,
       durationTime: body.duration_time ?? body.durationTime ?? 30,
+      commissionRate: body.commission_rate,
     });
   }
 
@@ -187,6 +191,8 @@ export class CatalogController {
       minStock?: number;
       usage?: string;
       unit?: string;
+      barcode?: string | null;
+      cost?: number;
     },
   ) {
     return this.catalogService.createProduct({
@@ -201,6 +207,8 @@ export class CatalogController {
       minStock: body.min_stock ?? body.minStock,
       usage: body.usage,
       unit: body.unit,
+      barcode: body.barcode,
+      cost: body.cost,
     });
   }
 
@@ -224,6 +232,8 @@ export class CatalogController {
       minStock?: number;
       usage?: string;
       unit?: string;
+      barcode?: string | null;
+      cost?: number;
     },
   ) {
     return this.catalogService.updateProduct(
@@ -240,6 +250,8 @@ export class CatalogController {
         minStock: body.min_stock ?? body.minStock,
         usage: body.usage,
         unit: body.unit,
+        barcode: body.barcode,
+        cost: body.cost,
       },
       user.id,
     );
@@ -263,6 +275,8 @@ export class CatalogController {
       delta: number;
       reason?: string;
       type?: string;
+      unit_cost?: number | null;
+      supplier?: string | null;
     },
   ) {
     return this.catalogService.adjustProductStock(
@@ -271,6 +285,8 @@ export class CatalogController {
         delta: body.delta,
         reason: body.reason,
         type: body.type,
+        unitCost: body.unit_cost,
+        supplier: body.supplier,
       },
       user.id,
     );

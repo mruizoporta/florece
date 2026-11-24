@@ -33,3 +33,12 @@ legacy/laravel/storage/logs/
 legacy/laravel/storage/framework/
 *.phpunit.result.cache
 .DS_Store
+
+# Compilaciones de la app móvil
+*.aab
+*.apk
+*.ipa
+
+# Caché local de pnpm y respaldos de dependencias
+.pnpm-store/
+*.antes-next-*

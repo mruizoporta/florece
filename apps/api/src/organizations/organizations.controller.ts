@@ -41,8 +41,8 @@ export class OrganizationsController {
   ) {
     return this.organizations.salesSummary(
       user,
-      from ? new Date(from) : undefined,
-      to ? new Date(to) : undefined,
+      from,
+      to,
     );
   }
 
@@ -57,8 +57,8 @@ export class OrganizationsController {
   ) {
     return this.organizations.profitSummary(
       user,
-      from ? new Date(from) : undefined,
-      to ? new Date(to) : undefined,
+      from,
+      to,
     );
   }
 }

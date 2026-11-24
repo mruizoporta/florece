@@ -1,3 +1,5 @@
+import { salonDateRange } from '../common/date';
+import { consumablesCost } from '../common/consumables-cost';
 import {
   ConflictException,
   ForbiddenException,
@@ -191,6 +193,10 @@ export class OrganizationsService {
 
     try {
       await this.onboarding.bootstrapTenant(tenant.id, tenant.name);
+      await this.onboarding.applyMarketDefaults(
+        tenant.id,
+        current.organization.billingRegion,
+      );
     } catch (err) {
       console.error('bootstrapTenant failed for new branch', err);
     }
@@ -224,11 +230,16 @@ export class OrganizationsService {
     };
   }
 
-  async salesSummary(
-    user: AuthUser,
-    from?: Date,
-    to?: Date,
-  ) {
+  /** Rango en el horario de la organización (no del servidor). */
+  private async orgRange(organizationId: bigint, from?: string, to?: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { billingRegion: true },
+    });
+    return salonDateRange(from, to, org?.billingRegion);
+  }
+
+  async salesSummary(user: AuthUser, from?: string, to?: string) {
     const current = await this.prisma.tenant.findUnique({
       where: { id: user.tenantId },
     });
@@ -242,8 +253,11 @@ export class OrganizationsService {
       select: { id: true, name: true, slug: true },
     });
 
-    const rangeStart = from ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const rangeEnd = to ?? new Date();
+    const { from: rangeStart, to: rangeEnd } = await this.orgRange(
+      current.organizationId,
+      from,
+      to,
+    );
 
     const rows = await Promise.all(
       branches.map(async (branch) => {
@@ -278,7 +292,7 @@ export class OrganizationsService {
     };
   }
 
-  async profitSummary(user: AuthUser, from?: Date, to?: Date) {
+  async profitSummary(user: AuthUser, from?: string, to?: string) {
     const current = await this.prisma.tenant.findUnique({
       where: { id: user.tenantId },
     });
@@ -292,13 +306,15 @@ export class OrganizationsService {
       select: { id: true, name: true, slug: true },
     });
 
-    const rangeStart =
-      from ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const rangeEnd = to ?? new Date();
+    const { from: rangeStart, to: rangeEnd } = await this.orgRange(
+      current.organizationId,
+      from,
+      to,
+    );
 
     const rows = await Promise.all(
       branches.map(async (branch) => {
-        const [orders, expenses] = await Promise.all([
+        const [orders, expenses, soldProducts] = await Promise.all([
           this.prisma.order.findMany({
             where: {
               tenantId: branch.id,
@@ -314,16 +330,39 @@ export class OrganizationsService {
             },
             select: { amount: true },
           }),
+          this.prisma.itemOrder.findMany({
+            where: {
+              productId: { not: null },
+              order: {
+                tenantId: branch.id,
+                status: 'finalized',
+                finalizedAt: { gte: rangeStart, lte: rangeEnd },
+              },
+            },
+            select: {
+              quantity: true,
+              unitCostSnapshot: true,
+              item: { select: { product: { select: { cost: true } } } },
+            },
+          }),
         ]);
+        const supplies = await consumablesCost(this.prisma, branch.id, rangeStart, rangeEnd);
         const income = orders.reduce((s, o) => s + Number(o.total), 0);
         const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
+        const cogs = soldProducts.reduce(
+          (s, l) =>
+            s + l.quantity * Number(l.unitCostSnapshot ?? l.item?.product?.cost ?? 0),
+          0,
+        );
         return {
           tenantId: Number(branch.id),
           name: branch.name,
           slug: branch.slug,
           income,
+          cogs: Math.round(cogs * 100) / 100,
+          supplies,
           expenses: expenseTotal,
-          profit: income - expenseTotal,
+          profit: income - cogs - supplies - expenseTotal,
           orderCount: orders.length,
           expenseCount: expenses.length,
         };
@@ -335,6 +374,8 @@ export class OrganizationsService {
       to: rangeEnd,
       branches: rows,
       income: rows.reduce((s, r) => s + r.income, 0),
+      cogs: rows.reduce((s, r) => s + r.cogs, 0),
+      supplies: rows.reduce((s, r) => s + r.supplies, 0),
       expenses: rows.reduce((s, r) => s + r.expenses, 0),
       profit: rows.reduce((s, r) => s + r.profit, 0),
     };

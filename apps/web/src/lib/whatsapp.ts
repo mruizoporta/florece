@@ -1,5 +1,7 @@
 /** WhatsApp deep links (wa.me) — no Meta API required. */
 
+import { normalizeWaDigits } from "@florece/shared";
+
 export type AppointmentWaKind = "confirm" | "remind";
 
 export type AppointmentWaContext = {
@@ -12,23 +14,18 @@ export type AppointmentWaContext = {
   locale?: "es" | "en";
 };
 
-/** Digits only for wa.me. Assumes Nicaragua (+505) when given a local 8-digit number. */
+/** Digits only for wa.me. 8 digits → +505. 10 digits (809/829/849) → +1. */
 export function normalizeWhatsAppPhone(
   raw?: string | null,
   defaultCountry = "505",
 ): string | null {
-  if (!raw?.trim()) return null;
-  let digits = raw.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  if (digits.length === 8) digits = `${defaultCountry}${digits}`;
-  if (digits.length < 10) return null;
-  return digits;
+  return normalizeWaDigits(raw, defaultCountry);
 }
 
 function formatAppointmentWhen(
   startTime?: string | null,
   locale: "es" | "en" = "es",
+  tu = false,
 ): { date: string; time: string } {
   if (!startTime) {
     return locale === "en"
@@ -36,27 +33,35 @@ function formatAppointmentWhen(
       : { date: "el día agendado", time: "la hora agendada" };
   }
   const d = new Date(startTime);
-  const tag = locale === "en" ? "en-US" : "es-NI";
+  const tag = locale === "en" ? "en-US" : tu ? "es-DO" : "es-NI";
+  const wall = { timeZone: "UTC" } as const;
   return {
     date: d.toLocaleDateString(tag, {
       weekday: "long",
       day: "numeric",
       month: "long",
+      ...wall,
     }),
-    time: d.toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" }),
+    time: d.toLocaleTimeString(tag, {
+      hour: "2-digit",
+      minute: "2-digit",
+      ...wall,
+    }),
   };
 }
 
 export function buildAppointmentWhatsAppText(
   kind: AppointmentWaKind,
   ctx: AppointmentWaContext,
+  phoneDigits?: string | null,
 ): string {
   const locale = ctx.locale ?? "es";
   const name = ctx.clientName?.trim() || (locale === "en" ? "there" : "hola");
   const stylist = ctx.stylistName?.trim();
   const services = ctx.services?.trim();
   const salon = ctx.salonName?.trim();
-  const { date, time } = formatAppointmentWhen(ctx.startTime, locale);
+  const tu = Boolean(phoneDigits?.startsWith("1"));
+  const { date, time } = formatAppointmentWhen(ctx.startTime, locale, tu);
 
   if (locale === "en") {
     const withWho = stylist ? ` with ${stylist}` : "";
@@ -73,7 +78,10 @@ export function buildAppointmentWhatsAppText(
   const lugar = salon ? ` — ${salon}` : "";
 
   if (kind === "confirm") {
-    return `Hola ${name} 👋 Te confirmamos tu cita el ${date} a las ${time}${conQuien}${svc}. ¿Nos confirmás tu asistencia?${lugar}`;
+    const ask = tu
+      ? "¿Nos confirmas tu asistencia?"
+      : "¿Nos confirmás tu asistencia?";
+    return `Hola ${name} 👋 Te confirmamos tu cita el ${date} a las ${time}${conQuien}${svc}. ${ask}${lugar}`;
   }
   return `Hola ${name} 👋 Te recordamos tu cita el ${date} a las ${time}${conQuien}${svc}. ¡Te esperamos!${lugar}`;
 }
@@ -84,7 +92,7 @@ export function appointmentWhatsAppUrl(
 ): string | null {
   const phone = normalizeWhatsAppPhone(ctx.phone);
   if (!phone) return null;
-  const text = buildAppointmentWhatsAppText(kind, ctx);
+  const text = buildAppointmentWhatsAppText(kind, ctx, phone);
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 

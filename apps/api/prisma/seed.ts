@@ -6,12 +6,12 @@ import {
   DEMO_SLUG,
   PLANS,
   PLATFORM_OWNER_EMAIL,
-  PLATFORM_OWNER_PASSWORD,
   PLATFORM_TENANT_SLUG,
   PlatformRole,
   TENANT_SUBSCRIPTION_STATUS,
   TRIAL_DAYS,
 } from '@florece/shared';
+import { seedDoTrial } from './seed-do-trial';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +26,7 @@ async function bootstrapTenant(tenantId: bigint, tenantName: string) {
     { name: 'En espera', color: 'success', description: 'En espera' },
     { name: 'Atendiendo', color: 'info', description: 'Atendiendo' },
     { name: 'Concluido', color: 'primary', description: 'Concluido' },
+    { name: 'No se presentó', color: 'secondary', description: 'La clienta no vino y no avisó' },
   ];
   for (const row of statusRows) {
     await prisma.status.create({
@@ -170,7 +171,9 @@ async function seedPlatformOwner() {
     });
   }
 
-  const passwordHash = await bcrypt.hash(PLATFORM_OWNER_PASSWORD, 10);
+  // Sin PLATFORM_OWNER_PASSWORD en el .env, la dueña existente conserva su contraseña.
+  const ownerPassword = process.env.PLATFORM_OWNER_PASSWORD?.trim() || null;
+  const passwordHash = ownerPassword ? await bcrypt.hash(ownerPassword, 10) : null;
   let owner = await prisma.user.findUnique({
     where: {
       tenantId_email: {
@@ -180,9 +183,17 @@ async function seedPlatformOwner() {
     },
   });
   if (!owner) {
+    owner = await prisma.user.findFirst({
+      where: { tenantId: ops.id, platformRole: PlatformRole.PLATFORM_OWNER },
+    });
+  }
+  if (!owner) {
+    if (!passwordHash) {
+      throw new Error('Falta PLATFORM_OWNER_PASSWORD en apps/api/.env para crear la cuenta de la plataforma.');
+    }
     owner = await prisma.user.create({
       data: {
-        name: 'Florece Owner',
+        name: 'Platform Admin',
         email: PLATFORM_OWNER_EMAIL,
         password: passwordHash,
         tenantId: ops.id,
@@ -195,7 +206,9 @@ async function seedPlatformOwner() {
     owner = await prisma.user.update({
       where: { id: owner.id },
       data: {
-        password: passwordHash,
+        name: 'Platform Admin',
+        email: PLATFORM_OWNER_EMAIL,
+        ...(passwordHash ? { password: passwordHash } : {}),
         platformRole: PlatformRole.PLATFORM_OWNER,
         updatedAt: now,
       },
@@ -360,13 +373,14 @@ async function main() {
   });
 
   await enrichDemoTenant(tenant.id, passwordHash, now);
+  const trial = await seedDoTrial(prisma);
 
   console.log('Seed OK:', {
     plans: Object.keys(PLANS),
     platform: {
       slug: PLATFORM_TENANT_SLUG,
       email: PLATFORM_OWNER_EMAIL,
-      password: PLATFORM_OWNER_PASSWORD,
+      password: process.env.PLATFORM_OWNER_PASSWORD?.trim() ? '(la de PLATFORM_OWNER_PASSWORD)' : '(sin cambios)',
     },
     demo: {
       slug: DEMO_SLUG,
@@ -375,6 +389,7 @@ async function main() {
       password: DEMO_ADMIN_PASSWORD,
       tip: 'Panel /s/demo/admin — Premium: citas, POS, patrocinadores y multi-sucursal',
     },
+    doTrial: trial,
   });
 }
 

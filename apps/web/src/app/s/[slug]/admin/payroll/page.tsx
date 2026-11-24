@@ -24,6 +24,8 @@ type PayrollRow = {
   commission: number;
   lineCount: number;
   total: number;
+  paid?: boolean;
+  pendingAdvances?: number;
 };
 
 type PayrollSummary = {
@@ -41,11 +43,11 @@ type PayrollSummary = {
 
 function monthStartIso() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString("en-CA");
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
 }
 
 export default function PayrollPage() {
@@ -65,12 +67,9 @@ export default function PayrollPage() {
 
   const query = useMemo(() => {
     const q = new URLSearchParams();
-    if (from) q.set("from", new Date(from).toISOString());
-    if (to) {
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
-      q.set("to", end.toISOString());
-    }
+    // Días calendario; el servidor los interpreta en el horario del salón.
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
     return q.toString();
   }, [from, to]);
 
@@ -186,7 +185,19 @@ export default function PayrollPage() {
                       className="flex items-center gap-3 bg-white/90 px-4 py-3.5 transition hover:bg-brand-warm/60"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-brand-ink">{row.name}</p>
+                        <p className="flex flex-wrap items-center gap-2 font-medium text-brand-ink">
+                          {row.name}
+                          {row.paid ? (
+                            <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              Pagado
+                            </span>
+                          ) : null}
+                          {row.pendingAdvances ? (
+                            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                              Adelanto {formatMoney(row.pendingAdvances)}
+                            </span>
+                          ) : null}
+                        </p>
                         <p className="text-xs text-brand-text-muted">
                           Base {formatMoney(row.baseProrated)} · comisión{" "}
                           {formatMoney(row.commission)} · {row.commissionRate}%

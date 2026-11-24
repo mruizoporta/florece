@@ -92,6 +92,7 @@ describe('plan-limits', () => {
 
     it('returns US / NI price by region', () => {
       expect(getStripePriceIdForRegion(plan, 'US')).toBe('price_us');
+      expect(getStripePriceIdForRegion(plan, 'DO')).toBe('price_us');
       expect(getStripePriceIdForRegion(plan, 'NI')).toBe('price_ni');
     });
 

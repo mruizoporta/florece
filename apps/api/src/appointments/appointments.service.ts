@@ -6,11 +6,13 @@ import {
 import { CreateAppointmentInput } from '@florece/shared';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
+import { WaitlistService } from '../waitlist/waitlist.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
 import { AppointmentsGateway } from './appointments.gateway';
-import { salonDayBounds, salonTodayYmd } from '../common/date';
+import { AppointmentPushService } from './appointment-push.service';
+import { billingRegionOf, salonDayBounds, salonTodayYmd, salonWallClockNow } from '../common/date';
 
 type TimeRange = { start: Date; end: Date };
 
@@ -20,6 +22,7 @@ export const APPOINTMENT_STATUS_NAMES = {
   WAITING: 'En espera',
   IN_PROGRESS: 'Atendiendo',
   COMPLETED: 'Concluido',
+  NO_SHOW: 'No se presentó',
 } as const;
 
 @Injectable()
@@ -28,10 +31,16 @@ export class AppointmentsService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContext,
     private readonly appointmentsGateway: AppointmentsGateway,
+    private readonly waitlist: WaitlistService,
+    private readonly pushes: AppointmentPushService,
   ) {}
 
   private tenantId(): bigint {
     return this.tenantContext.getTenant().id;
+  }
+
+  private region(): string | null {
+    return billingRegionOf(this.tenantContext.getTenant());
   }
 
   /** Legacy DB requires customers.user_id NOT NULL — create a walk-in user+customer. */
@@ -68,8 +77,13 @@ export class AppointmentsService {
     services: { include: { service: { include: { item: true } } } },
   } as const;
 
-  async listByDate(date: string, statusIds?: number[], employeeId?: number) {
-    const { start: dayStart, end: dayEnd } = salonDayBounds(date);
+  async listByDate(date?: string, statusIds?: number[], employeeId?: number) {
+    const region = this.region();
+    const resolvedDate =
+      date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? date
+        : salonTodayYmd(new Date(), region);
+    const { start: dayStart, end: dayEnd } = salonDayBounds(resolvedDate, region);
 
     return this.prisma.appointment.findMany({
       where: {
@@ -86,8 +100,9 @@ export class AppointmentsService {
   }
 
   async listByRange(from: string, to: string) {
-    const { start: rangeStart } = salonDayBounds(from);
-    const { end: rangeEnd } = salonDayBounds(to);
+    const region = this.region();
+    const { start: rangeStart } = salonDayBounds(from, region);
+    const { end: rangeEnd } = salonDayBounds(to, region);
 
     return this.prisma.appointment.findMany({
       where: {
@@ -117,8 +132,15 @@ export class AppointmentsService {
   }
 
   async getStats(date?: string) {
-    const resolvedDate = date ?? salonTodayYmd();
-    const { start: dayStart, end: dayEnd } = salonDayBounds(resolvedDate);
+    const region = this.region();
+    const resolvedDate =
+      date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? date
+        : salonTodayYmd(new Date(), region);
+    const { start: dayStart, end: dayEnd } = salonDayBounds(
+      resolvedDate,
+      region,
+    );
     const tenantId = this.tenantId();
 
     const [todayCount, waiting, pending, incomeToday] = await Promise.all([
@@ -194,7 +216,10 @@ export class AppointmentsService {
     const slotStepMs = 30 * 60_000;
     const durationMs = durationMinutes * 60_000;
 
+    // Las horas se guardan en hora local del salón: no ofrecer las que ya pasaron.
+    const nowWall = salonWallClockNow(new Date(), this.region()).getTime();
     let cursor = workStart.getTime();
+    while (cursor < nowWall) cursor += slotStepMs;
     while (cursor + durationMs <= workEnd.getTime()) {
       const slotStart = new Date(cursor);
       const slotEnd = new Date(cursor + durationMs);
@@ -302,6 +327,7 @@ export class AppointmentsService {
         typeId: type.id,
         name: input.name,
         phone: input.phone ?? null,
+        viewToken: randomBytes(24).toString('base64url'),
         startTime,
         endTime,
         tenantId,
@@ -321,6 +347,7 @@ export class AppointmentsService {
 
     const created = await this.getAppointment(appointment.id);
     this.notifyCreated(created);
+    void this.pushes.created(appointment.id, !input.typeId && (input.typeName ?? 'Web') === 'Web');
     return created;
   }
 
@@ -352,20 +379,13 @@ export class AppointmentsService {
     }
 
     const duration = services.reduce((sum, s) => sum + s.durationTime, 0);
-    const startTime = now;
+    // Las horas se guardan en hora local del salón (igual que las reservas).
+    const startTime = salonWallClockNow(now, this.region());
     const endTime = new Date(startTime.getTime() + Math.max(duration, 30) * 60_000);
 
-    let customerId: bigint;
-    const existingCustomer = await this.prisma.customer.findFirst({
-      where: { tenantId },
-      orderBy: { id: 'asc' },
-    });
-    if (existingCustomer) {
-      customerId = existingCustomer.id;
-    } else {
-      const guest = await this.createWalkInCustomer(tenantId, data.name);
-      customerId = guest.id;
-    }
+    // Cada walk-in es su propia clienta; antes se colgaba de la primera clienta del salón.
+    const guest = await this.createWalkInCustomer(tenantId, data.name);
+    const customerId = guest.id;
 
     const appointment = await this.prisma.appointment.create({
       data: {
@@ -394,6 +414,7 @@ export class AppointmentsService {
 
     const created = await this.getAppointment(appointment.id);
     this.notifyCreated(created);
+    void this.pushes.created(appointment.id, false);
     return created;
   }
 
@@ -445,11 +466,12 @@ export class AppointmentsService {
       include: { status: true, employee: true },
     });
     this.notifyUpdated(updated);
+    void this.pushes.rescheduled(appointmentId, appointment.employeeId);
     return updated;
   }
 
   async updateStatus(appointmentId: bigint, statusId: bigint) {
-    await this.requireAppointment(appointmentId);
+    const before = await this.requireAppointment(appointmentId);
     const status = await this.prisma.status.findFirst({
       where: { id: statusId, tenantId: this.tenantId() },
     });
@@ -462,11 +484,15 @@ export class AppointmentsService {
       include: { status: true, employee: true },
     });
     this.notifyUpdated(updated);
+    if (before.statusId !== statusId) void this.pushes.statusChanged(appointmentId, status.name);
+    if (status.name === APPOINTMENT_STATUS_NAMES.CANCELLED && before.statusId !== statusId) {
+      void this.waitlist.slotFreed(updated);
+    }
     return updated;
   }
 
   async cancel(appointmentId: bigint) {
-    await this.requireAppointment(appointmentId);
+    const before = await this.requireAppointment(appointmentId);
     const cancelled = await this.requireStatusByName(
       APPOINTMENT_STATUS_NAMES.CANCELLED,
     );
@@ -476,11 +502,15 @@ export class AppointmentsService {
       include: this.appointmentInclude,
     });
     this.notifyUpdated(updated);
+    if (before.statusId !== cancelled.id) {
+      void this.waitlist.slotFreed(updated);
+      void this.pushes.statusChanged(appointmentId, cancelled.name);
+    }
     return updated;
   }
 
   async changeEmployee(appointmentId: bigint, employeeId: bigint) {
-    await this.requireAppointment(appointmentId);
+    const before = await this.requireAppointment(appointmentId);
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, tenantId: this.tenantId() },
     });
@@ -493,6 +523,7 @@ export class AppointmentsService {
       include: this.appointmentInclude,
     });
     this.notifyUpdated(updated);
+    void this.pushes.employeeChanged(appointmentId, before.employeeId);
     return updated;
   }
 
@@ -555,6 +586,62 @@ export class AppointmentsService {
       (sum, order) => sum.plus(order.total),
       new Prisma.Decimal(0),
     ).toNumber();
+  }
+
+  /** Public lookup for the person who just booked. No phone, no other appointments. */
+  async viewByToken(token: string) {
+    const trimmed = token.trim();
+    if (!trimmed) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { viewToken: trimmed },
+      include: {
+        status: true,
+        employee: { select: { name: true } },
+        services: {
+          include: { service: { include: { item: { select: { name: true } } } } },
+        },
+        tenant: {
+          select: {
+            slug: true,
+            name: true,
+            settings: { select: { companyName: true }, take: 1 },
+          },
+        },
+      },
+    });
+    if (!appointment) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    const salonName =
+      appointment.tenant.settings[0]?.companyName?.trim() ||
+      appointment.tenant.name;
+
+    return {
+      salon: { slug: appointment.tenant.slug, name: salonName },
+      name: appointment.name,
+      status: appointment.status.name,
+      employeeName: appointment.employee?.name ?? null,
+      services: appointment.services.map((row) => row.service.item.name),
+      startTime: appointment.startTime,
+      endTime: appointment.endTime,
+    };
+  }
+
+  /** Detalle para el panel: incluye cuántas veces faltó la clienta sin avisar. */
+  async getAppointmentDetail(appointmentId: bigint) {
+    const appointment = await this.getAppointment(appointmentId);
+    const customerNoShows = await this.prisma.appointment.count({
+      where: {
+        tenantId: this.tenantId(),
+        customerId: appointment.customerId,
+        status: { name: APPOINTMENT_STATUS_NAMES.NO_SHOW },
+      },
+    });
+    return { ...appointment, customerNoShows };
   }
 
   async getAppointment(appointmentId: bigint) {

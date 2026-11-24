@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/AdminUi";
 import { useSalonMoney } from "@/components/admin/SalonMoneyProvider";
 import { formatDateTime } from "@/lib/format";
+import { PayrollPayments } from "@/components/admin/PayrollPayments";
 
 type PayrollLine = {
   id: number;
@@ -21,6 +22,7 @@ type PayrollLine = {
   customerName: string | null;
   finalizedAt: string | null;
   serviceName: string;
+  isProduct?: boolean;
   quantity: number;
   lineTotal: number;
   commissionRate: number;
@@ -39,15 +41,12 @@ type EmployeePayrollDetail = {
   };
   baseProrated: number;
   serviceSales: number;
+  productSales?: number;
   commission: number;
   lineCount: number;
   total: number;
   lines: PayrollLine[];
 };
-
-function toDateInput(iso: string) {
-  return iso.slice(0, 10);
-}
 
 export default function EmployeePayrollDetailPage() {
   const params = useParams();
@@ -58,11 +57,9 @@ export default function EmployeePayrollDetailPage() {
 
   const initialFrom =
     searchParams.get("from") ??
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      .toISOString()
-      .slice(0, 10);
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString("en-CA");
   const initialTo =
-    searchParams.get("to") ?? new Date().toISOString().slice(0, 10);
+    searchParams.get("to") ?? new Date().toLocaleDateString("en-CA");
 
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
@@ -72,12 +69,9 @@ export default function EmployeePayrollDetailPage() {
 
   const query = useMemo(() => {
     const q = new URLSearchParams();
-    if (from) q.set("from", new Date(from).toISOString());
-    if (to) {
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
-      q.set("to", end.toISOString());
-    }
+    // Días calendario; el servidor los interpreta en el horario del salón.
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
     return q.toString();
   }, [from, to]);
 
@@ -162,9 +156,11 @@ export default function EmployeePayrollDetailPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { label: "Base prorrateada", value: data.baseProrated },
-              { label: "Ventas servicio", value: data.serviceSales },
+              data.productSales
+                ? { label: "Ventas servicio + prod.", value: data.serviceSales + data.productSales }
+                : { label: "Ventas servicio", value: data.serviceSales },
               { label: "Comisión", value: data.commission },
-              { label: "Total a pagar", value: data.total },
+              { label: "Total ganado", value: data.total },
             ].map((card) => (
               <div
                 key={card.label}
@@ -179,6 +175,16 @@ export default function EmployeePayrollDetailPage() {
               </div>
             ))}
           </div>
+
+          <PayrollPayments
+            slug={slug}
+            employeeId={employeeId}
+            employeeName={data.employee.name}
+            from={from}
+            to={to}
+            baseProrated={data.baseProrated}
+            commission={data.commission}
+          />
 
           <AdminSection
             title="Servicios del período"
@@ -220,7 +226,7 @@ export default function EmployeePayrollDetailPage() {
                             {line.serviceName}
                           </p>
                           <p className="text-xs text-brand-text-muted">
-                            Cant. {line.quantity}
+                            {line.isProduct ? "Producto vendido · " : ""}Cant. {line.quantity}
                           </p>
                         </td>
                         <td className="px-2 py-3">
@@ -251,18 +257,6 @@ export default function EmployeePayrollDetailPage() {
             )}
           </AdminSection>
 
-          <div className="rounded-[1.25rem] border border-brand-ink/[0.08] bg-brand-warm/70 px-5 py-4">
-            <p className="text-sm text-brand-text-muted">
-              Período {toDateInput(data.from)} → {toDateInput(data.to)}
-            </p>
-            <p className="mt-1 font-serif text-3xl tracking-tight text-brand-ink">
-              {formatMoney(data.total)}
-            </p>
-            <p className="mt-1 text-sm text-brand-text-muted">
-              Base {formatMoney(data.baseProrated)} + comisión{" "}
-              {formatMoney(data.commission)}
-            </p>
-          </div>
         </>
       ) : null}
     </div>

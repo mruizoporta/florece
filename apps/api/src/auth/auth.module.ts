@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TenantModule } from '../tenant/tenant.module';
+import { MailModule } from '../mail/mail.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -23,6 +24,7 @@ import { OnboardingService } from './onboarding.service';
       }),
     }),
     TenantModule,
+    MailModule,
     forwardRef(() => OrganizationsModule),
   ],
   controllers: [AuthController],

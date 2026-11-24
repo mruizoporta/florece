@@ -1,3 +1,4 @@
+import { consumablesCost } from '../common/consumables-cost';
 import {
   BadRequestException,
   Injectable,
@@ -6,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
+import { billingRegionOf, salonDateRange } from '../common/date';
 
 const EXPENSE_METHODS = ['cash', 'card', 'transfer', 'other'] as const;
 
@@ -361,13 +363,14 @@ export class AccountingService {
     if (!session) throw new NotFoundException('Sesión de caja no encontrada');
 
     const now = new Date();
-    const [cashPayments, cashExpenses, paymentGroups] = await Promise.all([
+    const [cashPayments, cashExpenses, paymentGroups, cashRefunds] = await Promise.all([
       this.prisma.orderPayment.aggregate({
         where: {
           tenantId: this.tenantId(),
           method: { equals: 'cash', mode: 'insensitive' },
           order: {
-            status: 'finalized',
+            // «prepaid» = venta de bonos: entra a caja aunque no sea venta.
+            status: { in: ['finalized', 'prepaid'] },
             finalizedAt: { gte: session.openedAt, lte: now },
           },
         },
@@ -386,17 +389,32 @@ export class AccountingService {
         where: {
           tenantId: this.tenantId(),
           order: {
-            status: 'finalized',
+            // «prepaid» = venta de bonos: entra a caja aunque no sea venta.
+            status: { in: ['finalized', 'prepaid'] },
             finalizedAt: { gte: session.openedAt, lte: now },
           },
         },
         _sum: { amount: true },
         _count: { _all: true },
       }),
+      // Tickets cobrados en un turno anterior y anulados en este: el efectivo devuelto sale de esta caja.
+      this.prisma.orderPayment.aggregate({
+        where: {
+          tenantId: this.tenantId(),
+          method: { equals: 'cash', mode: 'insensitive' },
+          order: {
+            status: 'cancelled',
+            finalizedAt: { lt: session.openedAt },
+            cancelledAt: { gte: session.openedAt, lte: now },
+          },
+        },
+        _sum: { amount: true },
+      }),
     ]);
 
     const cashIn = Number(cashPayments._sum.amount ?? 0);
-    const cashOut = Number(cashExpenses._sum.amount ?? 0);
+    const refunds = Number(cashRefunds._sum.amount ?? 0);
+    const cashOut = Number(cashExpenses._sum.amount ?? 0) + refunds;
     const openingFloat = Number(session.openingFloat);
     const expectedCash = openingFloat + cashIn - cashOut;
     const difference = countedCash - expectedCash;
@@ -422,6 +440,7 @@ export class AccountingService {
         snapshot: {
           cashIn,
           cashOut,
+          refunds,
           openingFloat,
           byMethod,
           closedAt: now.toISOString(),
@@ -441,7 +460,7 @@ export class AccountingService {
     const range = this.parseRange(from, to) ?? this.defaultMonthRange();
     const tenantId = this.tenantId();
 
-    const [orders, expenses, payments] = await Promise.all([
+    const [orders, expenses, payments, soldProducts] = await Promise.all([
       this.prisma.order.findMany({
         where: {
           tenantId,
@@ -469,8 +488,30 @@ export class AccountingService {
         },
         select: { method: true, amount: true },
       }),
+      this.prisma.itemOrder.findMany({
+        where: {
+          productId: { not: null },
+          order: {
+            tenantId,
+            status: 'finalized',
+            finalizedAt: { gte: range.from, lte: range.to },
+          },
+        },
+        select: {
+          quantity: true,
+          unitCostSnapshot: true,
+          item: { select: { product: { select: { cost: true } } } },
+        },
+      }),
     ]);
 
+    // Ventas viejas (antes de guardar el costo) usan el costo actual del producto.
+    const cogs = soldProducts.reduce(
+      (s, l) =>
+        s + l.quantity * Number(l.unitCostSnapshot ?? l.item?.product?.cost ?? 0),
+      0,
+    );
+    const supplies = await consumablesCost(this.prisma, tenantId, range.from, range.to);
     const income = orders.reduce((s, o) => s + Number(o.total), 0);
     const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
@@ -504,8 +545,10 @@ export class AccountingService {
       from: range.from,
       to: range.to,
       income,
+      cogs: Math.round(cogs * 100) / 100,
+      supplies,
       expenses: expenseTotal,
-      profit: income - expenseTotal,
+      profit: income - cogs - supplies - expenseTotal,
       orderCount: orders.length,
       expenseCount: expenses.length,
       byMethod: Object.entries(byMethod).map(([method, amount]) => ({
@@ -520,19 +563,14 @@ export class AccountingService {
 
   private parseRange(from?: string, to?: string) {
     if (!from && !to) return null;
-    const start = from ? new Date(from) : new Date(0);
-    const end = to ? new Date(to) : new Date();
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      throw new BadRequestException('Rango de fechas inválido');
-    }
-    return { from: start, to: end };
+    return salonDateRange(from, to, billingRegionOf(this.tenantContext.getTenant()));
   }
 
   private defaultMonthRange() {
-    const now = new Date();
-    return {
-      from: new Date(now.getFullYear(), now.getMonth(), 1),
-      to: now,
-    };
+    return salonDateRange(
+      undefined,
+      undefined,
+      billingRegionOf(this.tenantContext.getTenant()),
+    );
   }
 }

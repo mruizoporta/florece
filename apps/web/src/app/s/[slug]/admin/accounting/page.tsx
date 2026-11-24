@@ -17,6 +17,8 @@ type ProfitSummary = {
   from: string;
   to: string;
   income: number;
+  cogs?: number;
+  supplies?: number;
   expenses: number;
   profit: number;
   orderCount: number;
@@ -32,11 +34,11 @@ type ProfitSummary = {
 
 function monthStartIso() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString("en-CA");
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
 }
 
 function methodKey(method: string): I18nKey {
@@ -45,6 +47,7 @@ function methodKey(method: string): I18nKey {
   if (m === "card") return "pay.card";
   if (m === "transfer") return "pay.transfer";
   if (m === "other") return "pay.other";
+  if (m === "voucher") return "pay.voucher";
   return "pay.other";
 }
 
@@ -61,12 +64,9 @@ export default function AccountingProfitPage() {
 
   const query = useMemo(() => {
     const q = new URLSearchParams();
-    if (from) q.set("from", new Date(from).toISOString());
-    if (to) {
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
-      q.set("to", end.toISOString());
-    }
+    // Días calendario; el servidor los interpreta en el horario del salón.
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
     return q.toString();
   }, [from, to]);
 
@@ -145,8 +145,8 @@ export default function AccountingProfitPage() {
 
       {!loading && data ? (
         <>
-          <div className="mb-8 grid gap-4 sm:grid-cols-3">
-            <div className="admin-stat-card pl-6">
+          <div className="mb-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="admin-stat-card">
               <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
                 {tr("accounting.income")}
               </p>
@@ -157,7 +157,20 @@ export default function AccountingProfitPage() {
                 {data.orderCount} {tr("common.tickets")}
               </p>
             </div>
-            <div className="admin-stat-card pl-6">
+            <div className="admin-stat-card">
+              <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
+                {tr("accounting.cogs")}
+              </p>
+              <p className="mt-3 font-serif text-3xl text-brand-ink">
+                {formatMoney((data.cogs ?? 0) + (data.supplies ?? 0))}
+              </p>
+              <p className="mt-2 text-xs text-brand-text-muted">
+                {data.cogs || data.supplies
+                  ? `Vendidos ${formatMoney(data.cogs ?? 0)} · Insumos ${formatMoney(data.supplies ?? 0)}`
+                  : "Cargá el costo en cada producto"}
+              </p>
+            </div>
+            <div className="admin-stat-card">
               <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
                 {tr("accounting.expenses")}
               </p>
@@ -168,7 +181,7 @@ export default function AccountingProfitPage() {
                 {data.expenseCount} {tr("common.movements")}
               </p>
             </div>
-            <div className="admin-stat-card pl-6">
+            <div className="admin-stat-card">
               <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
                 {tr("accounting.profit")}
               </p>
@@ -181,6 +194,7 @@ export default function AccountingProfitPage() {
               </p>
             </div>
           </div>
+          <p className="mb-8 text-xs text-brand-text-muted">{tr("accounting.cogsHint")}</p>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="admin-card">

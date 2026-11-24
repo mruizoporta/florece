@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -31,6 +31,13 @@ export class SettingsController {
     @Body()
     body: {
       activeAppointment?: boolean;
+      appointmentReminders?: boolean;
+      barcodeScanner?: boolean;
+      feedbackRequests?: boolean;
+      googleReviewUrl?: string | null;
+      manualDiscounts?: string;
+      manualDiscountMaxPct?: number;
+      stackPromotions?: boolean;
       appointmentType?: string;
       companyName?: string | null;
       mailContact?: string | null;
@@ -58,6 +65,22 @@ export class SettingsController {
       btnWhatsappTextColor?: string;
     },
   ) {
+    if (body.googleReviewUrl !== undefined) {
+      const url = body.googleReviewUrl?.trim() || null;
+      // Se le muestra a las clientas: solo un link https.
+      if (url && !/^https:\/\/\S+$/i.test(url)) {
+        throw new BadRequestException('El link de Google tiene que empezar con https://');
+      }
+      body.googleReviewUrl = url;
+    }
+    if (body.manualDiscounts !== undefined && !['off', 'admin', 'cashier'].includes(body.manualDiscounts)) {
+      throw new BadRequestException('Opción de descuentos inválida');
+    }
+    if (body.manualDiscountMaxPct !== undefined) {
+      const n = Math.trunc(Number(body.manualDiscountMaxPct));
+      if (!Number.isFinite(n) || n < 0 || n > 100) throw new BadRequestException('El tope va de 0 a 100%');
+      body.manualDiscountMaxPct = n;
+    }
     return this.settingsService.updateSetting(body);
   }
 

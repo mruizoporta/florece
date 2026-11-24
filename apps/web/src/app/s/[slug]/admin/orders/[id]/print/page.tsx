@@ -23,7 +23,8 @@ function lineName(item: OrderLine) {
 }
 
 function lineAmount(item: OrderLine) {
-  if (typeof item.lineTotal === "number") return item.lineTotal;
+  // Los descuentos del ticket se imprimen aparte, abajo.
+  if (typeof item.lineTotal === "number") return item.lineTotal + Number(item.promoDiscount ?? 0);
   const unit = item.unitPrice ?? item.unitPriceSnapshot ?? 0;
   return unit * item.quantity;
 }
@@ -32,6 +33,7 @@ function paymentLabel(method: string) {
   if (method === "cash") return "Efectivo";
   if (method === "card") return "Tarjeta";
   if (method === "transfer") return "Transferencia";
+  if (method === "voucher") return "Bono";
   return method;
 }
 
@@ -150,6 +152,19 @@ export default function OrderPrintPage() {
           )}
         </tbody>
       </table>
+
+      {(order.discounts ?? []).some((d) => Number(d.amount) > 0) ? (
+        <div className="mt-2 space-y-1 text-sm">
+          {(order.discounts ?? [])
+            .filter((d) => Number(d.amount) > 0)
+            .map((d) => (
+              <p key={d.id} className="flex justify-between">
+                <span>{d.label}</span>
+                <span className="tabular-nums">−{formatMoney(Number(d.amount))}</span>
+              </p>
+            ))}
+        </div>
+      ) : null}
 
       <div className="my-4 border-t border-dashed border-brand-ink/20" />
 

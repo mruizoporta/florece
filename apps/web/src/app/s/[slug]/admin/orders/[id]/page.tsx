@@ -5,6 +5,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Plus, Receipt, Trash2 } from "lucide-react";
 import { formatStockQty, type ProductUnit } from "@florece/shared";
+import { RequestFeedbackButton } from "@/components/admin/RequestFeedbackButton";
+import { OrderDiscounts } from "@/components/admin/OrderDiscounts";
 import { api } from "@/lib/api";
 import type { Order, OrderItem, PublicEmployee } from "@/lib/types";
 import {
@@ -65,6 +67,7 @@ function paymentLabel(method: string) {
   if (method === "cash") return "Efectivo";
   if (method === "card") return "Tarjeta";
   if (method === "transfer") return "Transferencia";
+  if (method === "voucher") return "Bono";
   return method;
 }
 
@@ -104,6 +107,7 @@ export default function AdminOrderDetailPage() {
   const [employees, setEmployees] = useState<PublicEmployee[]>([]);
   const [catalogKey, setCatalogKey] = useState("");
   const [lineEmployeeId, setLineEmployeeId] = useState("");
+  const [voucherCode, setVoucherCode] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -209,7 +213,11 @@ export default function AdminOrderDetailPage() {
               quantity: Number(quantity) || 1,
               employee_id: Number(lineEmployeeId),
             }
-          : { product_id: Number(rawId), quantity: Number(quantity) || 1 };
+          : {
+              product_id: Number(rawId),
+              quantity: Number(quantity) || 1,
+              ...(lineEmployeeId ? { employee_id: Number(lineEmployeeId) } : {}),
+            };
       await api(`/v1/orders/${id}/items`, {
         method: "POST",
         tenantSlug: slug,
@@ -235,7 +243,7 @@ export default function AdminOrderDetailPage() {
         method: "PATCH",
         tenantSlug: slug,
         auth: true,
-        body: { employee_id: Number(employeeId) },
+        body: { employee_id: employeeId ? Number(employeeId) : null },
       });
       await load();
     } catch (err) {
@@ -254,6 +262,25 @@ export default function AdminOrderDetailPage() {
         tenantSlug: slug,
         auth: true,
       });
+      await load();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function voucherAction(code: string, remove = false) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api(remove ? `/v1/orders/${id}/vouchers/${encodeURIComponent(code)}` : `/v1/orders/${id}/vouchers`, {
+        method: remove ? "DELETE" : "POST",
+        tenantSlug: slug,
+        auth: true,
+        ...(remove ? {} : { body: { code } }),
+      });
+      setVoucherCode("");
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Error");
@@ -446,11 +473,11 @@ export default function AdminOrderDetailPage() {
                         {formatMoney(lineUnitPrice(item))} × {item.quantity}
                         {!service ? " · Producto" : ""}
                       </p>
-                      {service ? (
+                      {service || isEditable || item.employee ? (
                         isEditable ? (
                           <div className="mt-2 max-w-xs">
                             <ModernSelect
-                              placeholder="Quién lo hizo"
+                              placeholder={service ? "Quién lo hizo" : "Quién lo vendió (opcional)"}
                               value={
                                 item.employeeId
                                   ? String(item.employeeId)
@@ -458,9 +485,9 @@ export default function AdminOrderDetailPage() {
                                     ? String(item.employee.id)
                                     : ""
                               }
-                              options={employeeOptions}
+                              options={service ? employeeOptions : [{ value: "", label: "Nadie" }, ...employeeOptions]}
                               onChange={(v) => setLineEmployee(item.id, v)}
-                              required
+                              required={service}
                             />
                           </div>
                         ) : (
@@ -517,20 +544,19 @@ export default function AdminOrderDetailPage() {
                   ]}
                   onChange={(v) => {
                     setCatalogKey(v);
-                    if (!v.startsWith("service:")) setLineEmployeeId("");
                   }}
                   required
                 />
               </div>
-              {addingService ? (
+              {catalogKey ? (
                 <div className="min-w-[11rem] flex-1">
-                  <label className="label-field">Profesional</label>
+                  <label className="label-field">{addingService ? "Profesional" : "Vendió (opcional)"}</label>
                   <ModernSelect
-                    placeholder="Quién lo hizo"
+                    placeholder={addingService ? "Quién lo hizo" : "Nadie"}
                     value={lineEmployeeId}
-                    options={employeeOptions}
+                    options={addingService ? employeeOptions : [{ value: "", label: "Nadie" }, ...employeeOptions]}
                     onChange={setLineEmployeeId}
-                    required
+                    required={addingService}
                   />
                 </div>
               ) : null}
@@ -576,13 +602,21 @@ export default function AdminOrderDetailPage() {
 
         <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="admin-card overflow-hidden !p-0">
-            <div className="bg-[linear-gradient(160deg,#f7f3eb_0%,#fff_55%)] px-5 py-5">
+            <div className="bg-[linear-gradient(160deg,var(--brand-warm)_0%,var(--brand-elevated)_55%)] px-5 py-5">
               <p className="text-[11px] font-semibold tracking-[0.08em] text-brand-text-muted uppercase">
                 Total a cobrar
               </p>
               <p className="mt-1 font-serif text-4xl tracking-tight text-brand-ink">
                 {formatMoney(total)}
               </p>
+              {Number(order.discountTotal ?? 0) > 0 ? (
+                <p className="mt-1 text-sm text-brand-text-muted">
+                  <span className="line-through">{formatMoney(Number(order.subtotal ?? 0))}</span>{" "}
+                  <span className="font-medium text-emerald-700">
+                    −{formatMoney(Number(order.discountTotal))} de descuento
+                  </span>
+                </p>
+              ) : null}
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-brand-text-muted">Pagado</p>
@@ -700,6 +734,14 @@ export default function AdminOrderDetailPage() {
             </AdminSection>
           ) : null}
 
+          <OrderDiscounts
+            slug={slug}
+            orderId={id}
+            discounts={order.discounts ?? []}
+            editable={isEditable}
+            onChanged={load}
+          />
+
           <AdminSection title={tr("orders.payments")} description="Registrá cómo paga la clienta.">
             {payments.length > 0 ? (
               <ul className="space-y-2">
@@ -710,9 +752,26 @@ export default function AdminOrderDetailPage() {
                   >
                     <span className="font-medium text-brand-ink">
                       {paymentLabel(p.method)}
+                      {p.method === "voucher" && p.reference ? (
+                        <span className="ml-1.5 font-mono text-xs text-brand-text-muted">
+                          {p.reference.split(":")[0]}
+                          {p.reference.includes(":") ? ` · ${p.reference.split(":")[1]} sesión(es)` : ""}
+                        </span>
+                      ) : null}
                     </span>
-                    <span className="tabular-nums font-semibold">
+                    <span className="flex items-center gap-2 tabular-nums font-semibold">
                       {formatMoney(p.amount)}
+                      {isEditable && p.method === "voucher" && p.reference ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => voucherAction(p.reference!.split(":")[0], true)}
+                          aria-label="Quitar bono"
+                          className="text-brand-text-muted hover:text-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      ) : null}
                     </span>
                   </li>
                 ))}
@@ -720,6 +779,27 @@ export default function AdminOrderDetailPage() {
             ) : (
               <p className="text-sm text-brand-text-muted">Sin pagos registrados.</p>
             )}
+
+            {isEditable ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (voucherCode.trim()) void voucherAction(voucherCode.trim());
+                }}
+                className="flex gap-2 border-t border-brand-ink/6 pt-4"
+              >
+                <input
+                  className="input-field !rounded-2xl font-mono uppercase"
+                  placeholder="Código de bono o gift card"
+                  aria-label="Código de bono o gift card"
+                  value={voucherCode}
+                  onChange={(e) => setVoucherCode(e.target.value)}
+                />
+                <button type="submit" disabled={busy || !voucherCode.trim()} className="btn-secondary shrink-0 py-2.5 text-sm">
+                  Usar bono
+                </button>
+              </form>
+            ) : null}
 
             {isEditable ? (
               <form
@@ -791,6 +871,13 @@ export default function AdminOrderDetailPage() {
               Volver a imprimir
             </Link>
           )}
+          {order.status === "finalized" ? (
+            <RequestFeedbackButton
+              slug={slug}
+              target={{ order_id: Number(order.id) }}
+              className="btn-secondary inline-flex w-full items-center justify-center gap-2 py-2.5 text-sm"
+            />
+          ) : null}
         </div>
       </div>
     </div>

@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Building2,
-  CreditCard,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -16,11 +14,12 @@ import { logout } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FloreceLogo } from "@/components/brand/FloreceLogo";
 
-const links = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/admin/tenants", label: "Salones", icon: Building2 },
-  { href: "/admin/plans", label: "Planes", icon: CreditCard },
-];
+const links: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact: boolean;
+}[] = [];
 
 function Nav({
   pathname,

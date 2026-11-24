@@ -88,7 +88,7 @@ function ColorPickerRow({
 }) {
   const css = toCssColor(value, fallback);
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-brand-ink/8 bg-[#faf8f4] p-3">
+    <div className="flex items-center gap-3 rounded-2xl border border-brand-ink/8 bg-brand-warm p-3">
       <input
         type="color"
         aria-label={label}
@@ -197,7 +197,7 @@ export default function AdminAppearancePage() {
       <form onSubmit={handleSubmit} className="max-w-3xl space-y-5">
         <AdminSection
           title="Colores"
-          description="Se aplican a botones, títulos, precios y pie de la página pública."
+          description="Se aplican a botones, títulos, precios y pie de la página pública, y también en la app Florece (portada, botones y acentos). El logo y el banner se cambian en Ajustes → Imágenes."
         >
           <div
             className="mb-4 overflow-hidden rounded-2xl border border-brand-ink/8"
@@ -247,7 +247,7 @@ export default function AdminAppearancePage() {
           title="Reservas en el sitio"
           description="Controlá si los clientes pueden pedir cita desde la página pública."
         >
-          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-brand-ink/8 bg-[#faf8f4] px-4 py-3">
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-brand-ink/8 bg-brand-warm px-4 py-3">
             <span className="text-sm font-medium text-brand-ink">
               Mostrar “Agendar cita” en el sitio
             </span>

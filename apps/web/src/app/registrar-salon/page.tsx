@@ -18,7 +18,7 @@ export default function RegisterSalonPage() {
     adminName: "",
     email: "",
     password: "",
-    billingRegion: "NI" as "NI" | "US",
+    billingRegion: "NI" as "NI" | "US" | "DO",
     locale: "es" as "es" | "en",
   });
   const [error, setError] = useState<string | null>(null);
@@ -126,9 +126,10 @@ export default function RegisterSalonPage() {
                 value={form.billingRegion}
                 options={[
                   { value: "NI", label: "Nicaragua" },
+                  { value: "DO", label: "República Dominicana" },
                   { value: "US", label: "Estados Unidos" },
                 ]}
-                onChange={(v) => update("billingRegion", v as "NI" | "US")}
+                onChange={(v) => update("billingRegion", v as "NI" | "US" | "DO")}
               />
               <ModernSelect
                 label="Idioma"

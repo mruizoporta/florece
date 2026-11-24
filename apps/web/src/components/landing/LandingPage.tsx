@@ -454,7 +454,7 @@ export function LandingPage() {
                   className={`mt-6 inline-flex w-full shrink-0 items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${
                     plan.slug === "pro"
                       ? "bg-brand-primary text-brand-ink"
-                      : "bg-brand-ink text-white"
+                      : "bg-brand-ink text-brand-base"
                   }`}
                 >
                   {tr("landing.startTrial").replace(

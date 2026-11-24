@@ -43,8 +43,12 @@ export class BillingService {
     let warning: string | null = null;
     let softBlock = false;
     let hardBlock = false;
+    // El salón demo es una vitrina: nunca vence ni muestra avisos de cobro.
+    const demo = this.tenantService.isDemo(tenant);
 
-    if (status === 'suspended') {
+    if (demo) {
+      // sin avisos
+    } else if (status === 'suspended') {
       hardBlock = true;
       warning =
         'Tu cuenta está suspendida. Contacta a Florece por WhatsApp para reactivar.';
@@ -63,6 +67,7 @@ export class BillingService {
     }
 
     const daysRemaining = (() => {
+      if (demo) return null;
       const end =
         status === 'trial' ? trialEndsAt : periodEnd ?? trialEndsAt;
       if (!end) return null;

@@ -1,0 +1,36 @@
+# Lo que NO se sube a los servidores de Expo al compilar la app (sin git, EAS usa este archivo).
+# Secretos
+.env
+.env.*
+**/.env
+**/.env.*
+*.keystore
+*.jks
+*.pem
+*.p8
+*.p12
+# Dependencias y compilaciones (EAS las reinstala)
+node_modules/
+**/node_modules/
+.venv/
+apps/web/.next/
+apps/api/dist/
+apps/mobile/dist/
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+*.apk
+*.aab
+# Nada de esto hace falta para la app
+legacy/
+deploy/
+docs/
+storage/
+apps/api/storage/
+docker-compose.yml
+package-lock.json.antes-*
+scripts/
+
+# Caché local de pnpm (no hace falta en EAS)
+.pnpm-store/
+apps/mobile/store/

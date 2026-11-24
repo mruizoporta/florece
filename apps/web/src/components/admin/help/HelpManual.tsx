@@ -108,7 +108,7 @@ export function HelpManual({ slug }: { slug: string }) {
 
   return (
     <div className="mx-auto max-w-5xl pb-24">
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-brand-ink/[0.06] bg-gradient-to-br from-[#f7f3ef] via-white to-[#efe6da] px-6 py-8 sm:px-10 sm:py-10">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-brand-ink/[0.06] bg-gradient-to-br from-brand-warm via-brand-elevated to-brand-mist px-6 py-8 sm:px-10 sm:py-10">
         <div
           className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-primary/20 blur-3xl"
           aria-hidden
@@ -257,7 +257,7 @@ export function HelpManual({ slug }: { slug: string }) {
                 onClick={() => setCategory(cat.id)}
                 className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                   active
-                    ? "bg-brand-ink text-white"
+                    ? "bg-brand-ink text-brand-base"
                     : "bg-brand-elevated/80 text-brand-text-muted ring-1 ring-brand-ink/10 hover:text-brand-ink"
                 }`}
               >
@@ -336,7 +336,7 @@ export function HelpManual({ slug }: { slug: string }) {
                                 key={i}
                                 className="flex gap-3 text-sm text-brand-ink"
                               >
-                                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-ink text-[11px] font-bold text-white">
+                                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-ink text-[11px] font-bold text-brand-base">
                                   {i + 1}
                                 </span>
                                 <span className="leading-relaxed pt-0.5">

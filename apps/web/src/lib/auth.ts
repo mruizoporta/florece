@@ -1,4 +1,9 @@
-import type { AuthUser, LoginInput, RegisterSalonInput } from "@florece/shared";
+import type {
+  AuthUser,
+  LoginInput,
+  LoginSalonChoice,
+  RegisterSalonInput,
+} from "@florece/shared";
 import { api, setAccessToken, setStoredTenantSlug } from "./api";
 
 export type LoginResponse = {
@@ -7,14 +12,20 @@ export type LoginResponse = {
   tenant?: { slug: string; name: string };
 };
 
-export async function login(input: LoginInput): Promise<LoginResponse> {
-  const data = await api<LoginResponse>("/auth/login", {
+export type LoginChoiceResponse = { needsSalon: true; salons: LoginSalonChoice[] };
+
+export async function login(
+  input: LoginInput,
+): Promise<LoginResponse | LoginChoiceResponse> {
+  const data = await api<LoginResponse | LoginChoiceResponse>("/auth/login", {
     method: "POST",
     body: input,
     tenantSlug: input.tenantSlug,
   });
+  // Sin código y con cuentas en varios salones: el usuario elige y se reintenta.
+  if ("needsSalon" in data) return data;
   setAccessToken(data.accessToken);
-  setStoredTenantSlug(input.tenantSlug);
+  setStoredTenantSlug(data.tenant?.slug ?? input.tenantSlug ?? null);
   return data;
 }
 

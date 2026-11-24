@@ -95,6 +95,13 @@ model Tenant {
   instagramFeeds   InstagramFeed[]
   expenseCategories ExpenseCategory[]
   expenses         Expense[]
+  payrollPayments  PayrollPayment[]
+  customerRecords  CustomerRecord[]
+  vouchers         Voucher[]
+  promotions       Promotion[]
+  feedback         Feedback[]
+  waitlist         WaitlistEntry[]
+  pushTokens       PushToken[]
   cashSessions     CashSession[]
   inventoryMovements InventoryMovement[]
   serviceConsumables ServiceConsumable[]
@@ -148,6 +155,7 @@ model User {
   employee             Employee?            @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   customer             Customer?
   refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
   modelHasRoles        ModelHasRole[]
   saasPaymentsRecorded SaasPayment[]        @relation("SaasPaymentRecordedBy")
   organizationMembers  OrganizationMember[]
@@ -155,6 +163,7 @@ model User {
   expensesRecorded     Expense[]            @relation("ExpenseRecordedBy")
   cashSessionsOpened   CashSession[]        @relation("CashSessionOpenedBy")
   cashSessionsClosed   CashSession[]        @relation("CashSessionClosedBy")
+  pushTokens           PushToken[]
   inventoryMovements   InventoryMovement[]
 
   @@unique([tenantId, email])
@@ -199,6 +208,20 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+model PasswordResetToken {
+  id        BigInt    @id @default(autoincrement())
+  tokenHash String    @unique @map("token_hash")
+  userId    BigInt    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_links")
+}
+
 model Role {
   id        BigInt    @id @default(autoincrement())
   name      String
@@ -232,6 +255,8 @@ model Employee {
   status          Boolean  @default(true)
   baseSalary      Decimal  @default(0) @map("base_salary") @db.Decimal(10, 2)
   commissionRate  Decimal  @default(0) @map("commission_rate") @db.Decimal(5, 2)
+  /// % sobre los productos que vende (0 = no cobra comisión por productos)
+  productCommissionRate Decimal @default(0) @map("product_commission_rate") @db.Decimal(5, 2)
   tenantId        BigInt   @map("tenant_id")
   createdAt       DateTime? @map("created_at")
   updatedAt       DateTime? @map("updated_at")
@@ -244,6 +269,8 @@ model Employee {
   orderItems   ItemOrder[]
   socials      EmployeeSocial[]
   linkedUser   User?
+  payrollPayments PayrollPayment[]
+  customerRecords CustomerRecord[]
 
   @@map("employees")
 }
@@ -283,6 +310,10 @@ model Customer {
   id        BigInt  @id @default(autoincrement())
   userId    BigInt  @unique @map("user_id")
   tenantId  BigInt  @map("tenant_id")
+  /// Último mensaje de «te extrañamos» (para no escribirle dos veces seguidas)
+  lastContactedAt DateTime? @map("last_contacted_at")
+  /// Alergias y cuidados a tener en cuenta (ficha técnica)
+  allergies String? @db.Text
   createdAt DateTime? @map("created_at")
   updatedAt DateTime? @map("updated_at")
 
@@ -290,8 +321,33 @@ model Customer {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointments Appointment[]
   orders       Order[]
+  records      CustomerRecord[]
 
   @@map("customers")
+}
+
+/// Ficha técnica: lo que se le hizo a la clienta (fórmula de color, notas, fotos antes/después).
+model CustomerRecord {
+  id          BigInt    @id @default(autoincrement())
+  tenantId    BigInt    @map("tenant_id")
+  customerId  BigInt    @map("customer_id")
+  employeeId  BigInt?   @map("employee_id")
+  serviceName String?   @map("service_name") @db.VarChar(120)
+  formula     String?   @db.Text
+  notes       String?   @db.Text
+  beforePhoto String?   @map("before_photo")
+  afterPhoto  String?   @map("after_photo")
+  recordedAt  DateTime  @map("recorded_at")
+  createdById BigInt?   @map("created_by_id")
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, customerId, recordedAt])
+  @@map("customer_records")
 }
 
 model Category {
@@ -337,6 +393,8 @@ model Service {
   id           BigInt @id @default(autoincrement())
   itemId       BigInt @unique @map("item_id")
   durationTime Int    @default(30) @map("duration_time")
+  /// % de comisión propio del servicio; null = el de cada profesional
+  commissionRate Decimal? @map("commission_rate") @db.Decimal(5, 2)
   createdAt    DateTime? @map("created_at")
   updatedAt    DateTime? @map("updated_at")
 
@@ -356,6 +414,10 @@ model Product {
   usage     String  @default("retail") @db.VarChar(20)
   /// unit | g | ml — stock quantities are integers in this unit
   unit      String  @default("unit") @db.VarChar(10)
+  /// Código de barras para el lector del punto de venta (opcional, único por salón en la API)
+  barcode   String? @db.VarChar(64)
+  /// Costo unitario promedio (se recalcula con cada ingreso que trae costo)
+  cost      Decimal @default(0) @db.Decimal(12, 2)
   createdAt DateTime? @map("created_at")
   updatedAt DateTime? @map("updated_at")
 
@@ -365,6 +427,7 @@ model Product {
   consumables  ServiceConsumable[]
 
   @@index([usage])
+  @@index([barcode])
   @@map("products")
 }
 
@@ -399,6 +462,9 @@ model InventoryMovement {
   quantity   Int
   stockAfter Int       @map("stock_after")
   reason     String?
+  /// Ingresos: costo unitario de la compra y proveedor (opcionales)
+  unitCost   Decimal?  @map("unit_cost") @db.Decimal(12, 2)
+  supplier   String?   @db.VarChar(120)
   createdAt  DateTime? @map("created_at")
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -445,8 +511,13 @@ model Appointment {
   typeId     BigInt    @map("type_id")
   name       String
   phone      String?
+  /// Opaque token returned only to the client who booked on the web/app.
+  viewToken  String?   @unique @map("view_token") @db.VarChar(64)
   startTime  DateTime? @map("start_time")
   endTime    DateTime? @map("end_time")
+  /// Recordatorios automáticos ya enviados (evita repetirlos).
+  reminder24hSentAt DateTime? @map("reminder_24h_sent_at")
+  reminder2hSentAt  DateTime? @map("reminder_2h_sent_at")
   tenantId   BigInt    @map("tenant_id")
   createdAt  DateTime? @map("created_at")
   updatedAt  DateTime? @map("updated_at")
@@ -457,6 +528,7 @@ model Appointment {
   type     Type                 @relation(fields: [typeId], references: [id])
   tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   services AppointmentService[]
+  pushTokens PushToken[]
 
   @@index([tenantId, startTime])
   @@map("appointments")
@@ -499,6 +571,7 @@ model Order {
   items    ItemOrder[]
   payments OrderPayment[]
   inventoryMovements InventoryMovement[]
+  discounts OrderDiscount[]
 
   @@map("orders")
 }
@@ -513,10 +586,15 @@ model ItemOrder {
   price                   Decimal @default(0) @db.Decimal(10, 2)
   productNameSnapshot     String? @map("product_name_snapshot")
   unitPriceSnapshot       Decimal @default(0) @map("unit_price_snapshot") @db.Decimal(10, 2)
+  /// Descuento de paquete (sesión cobrada a su valor)
   lineDiscount            Decimal @default(0) @map("line_discount") @db.Decimal(10, 2)
+  /// Parte de los descuentos del ticket (a mano, cupón, promoción) que cae en esta línea
+  promoDiscount           Decimal @default(0) @map("promo_discount") @db.Decimal(10, 2)
   lineTax                 Decimal @default(0) @map("line_tax") @db.Decimal(10, 2)
   lineTotal               Decimal @default(0) @map("line_total") @db.Decimal(10, 2)
   commissionRateSnapshot  Decimal? @map("commission_rate_snapshot") @db.Decimal(5, 2)
+  /// Productos: costo unitario al momento de venderlo (para el margen)
+  unitCostSnapshot        Decimal? @map("unit_cost_snapshot") @db.Decimal(12, 2)
   tenantId                BigInt? @map("tenant_id")
   createdAt               DateTime? @map("created_at")
   updatedAt               DateTime? @map("updated_at")
@@ -581,6 +659,18 @@ model Section {
 model Setting {
   id                         BigInt  @id @default(autoincrement())
   activeAppointment          Boolean @default(true) @map("active_appointment")
+  appointmentReminders       Boolean @default(true) @map("appointment_reminders")
+  barcodeScanner             Boolean @default(false) @map("barcode_scanner")
+  /// Pedir opinión por correo después de cada cita concluida
+  feedbackRequests           Boolean @default(true) @map("feedback_requests")
+  /// Link para dejar reseña en Google (se ofrece a quien califica 4 o 5)
+  googleReviewUrl            String? @map("google_review_url")
+  /// Descuento a mano al cobrar: off | admin (solo Admin) | cashier (Admin y Cajero)
+  manualDiscounts            String  @default("admin") @map("manual_discounts") @db.VarChar(10)
+  /// Tope en % del descuento a mano para quien no es Admin
+  manualDiscountMaxPct       Int     @default(20) @map("manual_discount_max_pct")
+  /// Si un cupón y una promoción automática se suman (si no, gana la mayor)
+  stackPromotions            Boolean @default(false) @map("stack_promotions")
   appointmentType            String  @default("blacklist") @map("appointment_type")
   companyName                String? @map("company_name")
   mailContact                String? @map("mail_contact")
@@ -765,4 +855,213 @@ model CashSession {
   @@index([tenantId, status])
   @@index([tenantId, openedAt])
   @@map("cash_sessions")
+}
+
+/// Pagos de planilla y adelantos. Cada uno genera un gasto «Sueldos» en Utilidad.
+model PayrollPayment {
+  id           BigInt    @id @default(autoincrement())
+  tenantId     BigInt    @map("tenant_id")
+  employeeId   BigInt    @map("employee_id")
+  /// payment | advance
+  kind         String    @db.VarChar(10)
+  /// Período liquidado en días del salón (YYYY-MM-DD); null en adelantos
+  periodFrom   String?   @map("period_from") @db.VarChar(10)
+  periodTo     String?   @map("period_to") @db.VarChar(10)
+  base         Decimal   @default(0) @db.Decimal(12, 2)
+  commission   Decimal   @default(0) @db.Decimal(12, 2)
+  bonus        Decimal   @default(0) @db.Decimal(12, 2)
+  deduction    Decimal   @default(0) @db.Decimal(12, 2)
+  /// Adelantos descontados en este pago
+  advances     Decimal   @default(0) @db.Decimal(12, 2)
+  /// Lo que se entregó
+  amount       Decimal   @db.Decimal(12, 2)
+  method       String    @db.VarChar(20)
+  note         String?   @db.Text
+  paidAt       DateTime  @default(now()) @map("paid_at")
+  recordedById BigInt?   @map("recorded_by_id")
+  expenseId    BigInt?   @map("expense_id")
+  /// Adelanto: el pago que lo descontó
+  appliedToId  BigInt?   @map("applied_to_id")
+  cancelledAt  DateTime? @map("cancelled_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, employeeId])
+  @@map("payroll_payments")
+}
+
+/// Bono prepagado: gift card (saldo en plata) o paquete (N sesiones de un servicio).
+/// La venta queda en una orden «prepaid» (entra a caja, no es ingreso); el ingreso se reconoce al canjearlo.
+model Voucher {
+  id            BigInt    @id @default(autoincrement())
+  tenantId      BigInt    @map("tenant_id")
+  code          String    @db.VarChar(16)
+  /// giftcard | package
+  kind          String    @db.VarChar(10)
+  holderName    String    @map("holder_name") @db.VarChar(120)
+  holderPhone   String?   @map("holder_phone") @db.VarChar(40)
+  /// Lo que se cobró al venderlo
+  price         Decimal   @db.Decimal(12, 2)
+  /// Gift card: saldo disponible
+  balance       Decimal   @default(0) @db.Decimal(12, 2)
+  /// Paquete: servicio (item) y sesiones
+  serviceItemId BigInt?   @map("service_item_id")
+  serviceName   String?   @map("service_name") @db.VarChar(120)
+  sessionsTotal Int       @default(0) @map("sessions_total")
+  sessionsUsed  Int       @default(0) @map("sessions_used")
+  saleOrderId   BigInt?   @map("sale_order_id")
+  expiresAt     DateTime? @map("expires_at")
+  cancelledAt   DateTime? @map("cancelled_at")
+  createdById   BigInt?   @map("created_by_id")
+  createdAt     DateTime? @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@map("vouchers")
+}
+
+/// Opinión después de la visita. La clienta responde en una página pública con el token.
+model Feedback {
+  id            BigInt    @id @default(autoincrement())
+  tenantId      BigInt    @map("tenant_id")
+  token         String    @unique @db.VarChar(48)
+  appointmentId BigInt?   @unique @map("appointment_id")
+  orderId       BigInt?   @unique @map("order_id")
+  customerName  String?   @map("customer_name") @db.VarChar(120)
+  employeeId    BigInt?   @map("employee_id")
+  employeeName  String?   @map("employee_name") @db.VarChar(120)
+  serviceNames  String?   @map("service_names") @db.VarChar(400)
+  /// 1 a 5; null = todavía no respondió
+  rating        Int?
+  comment       String?   @db.Text
+  reviewClicked Boolean   @default(false) @map("review_clicked")
+  /// email | whatsapp | link
+  channel       String    @default("link") @db.VarChar(10)
+  answeredAt    DateTime? @map("answered_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, answeredAt])
+  @@map("feedback")
+}
+
+/// Lista de espera: alguien que quiere un día sin horarios libres. Si se cancela una cita ese día, se le avisa.
+model WaitlistEntry {
+  id              BigInt    @id @default(autoincrement())
+  tenantId        BigInt    @map("tenant_id")
+  name            String    @db.VarChar(120)
+  phone           String    @db.VarChar(40)
+  email           String?   @db.VarChar(160)
+  /// Día de salón YYYY-MM-DD
+  date            String    @db.VarChar(10)
+  /// null = cualquier profesional
+  employeeId      BigInt?   @map("employee_id")
+  serviceNames    String?   @map("service_names") @db.VarChar(400)
+  durationMinutes Int       @default(30) @map("duration_minutes")
+  note            String?   @db.VarChar(400)
+  /// waiting | booked | dropped
+  status          String    @default("waiting") @db.VarChar(12)
+  /// web | panel
+  source          String    @default("web") @db.VarChar(8)
+  /// Última vez que se liberó un horario que le sirve (para resaltarla en el panel)
+  slotFreedAt     DateTime? @map("slot_freed_at")
+  notifiedAt      DateTime? @map("notified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, date, status])
+  @@map("waitlist")
+}
+
+/// Cupón (con código) o promoción automática (se aplica sola si se cumplen las condiciones).
+model Promotion {
+  id             BigInt    @id @default(autoincrement())
+  tenantId       BigInt    @map("tenant_id")
+  name           String    @db.VarChar(120)
+  /// coupon | auto
+  kind           String    @db.VarChar(10)
+  code           String?   @db.VarChar(30)
+  /// percent | amount
+  discountType   String    @map("discount_type") @db.VarChar(10)
+  value          Decimal   @db.Decimal(10, 2)
+  /// all | services | products | items
+  appliesTo      String    @default("all") @map("applies_to") @db.VarChar(10)
+  /// appliesTo=items: ids de items (servicios o productos)
+  itemIds        Json?     @map("item_ids")
+  /// Días 1 (lunes) a 7 (domingo); vacío = todos
+  weekdays       Json?
+  /// Franja horaria local "HH:MM"; vacío = todo el día
+  fromTime       String?   @map("from_time") @db.VarChar(5)
+  toTime         String?   @map("to_time") @db.VarChar(5)
+  firstVisitOnly Boolean   @default(false) @map("first_visit_only")
+  minTotal       Decimal?  @map("min_total") @db.Decimal(10, 2)
+  /// Vigencia en fechas del salón "YYYY-MM-DD"
+  startsOn       String?   @map("starts_on") @db.VarChar(10)
+  endsOn         String?   @map("ends_on") @db.VarChar(10)
+  maxUses        Int?      @map("max_uses")
+  usesCount      Int       @default(0) @map("uses_count")
+  showOnBooking  Boolean   @default(false) @map("show_on_booking")
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime? @map("updated_at")
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  discounts OrderDiscount[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, kind, active])
+  @@map("promotions")
+}
+
+/// Descuento aplicado a un ticket. El monto se recalcula con cada cambio del ticket mientras está en borrador.
+model OrderDiscount {
+  id           BigInt    @id @default(autoincrement())
+  tenantId     BigInt    @map("tenant_id")
+  orderId      BigInt    @map("order_id")
+  promotionId  BigInt?   @map("promotion_id")
+  /// manual | coupon | auto
+  source       String    @db.VarChar(10)
+  label        String    @db.VarChar(120)
+  discountType String    @map("discount_type") @db.VarChar(10)
+  value        Decimal   @db.Decimal(10, 2)
+  amount       Decimal   @default(0) @db.Decimal(10, 2)
+  /// Por qué no descuenta ahora (no cumple condiciones, no se combina…)
+  note         String?   @db.VarChar(160)
+  reason       String?   @db.VarChar(200)
+  /// Promoción automática que la caja sacó a mano
+  dismissed    Boolean   @default(false)
+  createdById  BigInt?   @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  promotion Promotion? @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([tenantId, createdAt])
+  @@map("order_discounts")
+}
+
+/// Token de notificaciones push (Expo). De una cita (la clienta no tiene cuenta) o de un usuario del salón.
+model PushToken {
+  id            BigInt   @id @default(autoincrement())
+  token         String   @db.VarChar(255)
+  tenantId      BigInt   @map("tenant_id")
+  userId        BigInt?  @map("user_id")
+  appointmentId BigInt?  @map("appointment_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([appointmentId])
+  @@map("push_tokens")
 }

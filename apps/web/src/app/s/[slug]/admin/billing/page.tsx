@@ -228,7 +228,7 @@ export default function AdminBillingPage() {
                     Días restantes
                   </p>
                   <p className="mt-1 text-sm font-medium">
-                    {daysRemaining != null ? `${daysRemaining}d` : "—"}
+                    {daysRemaining == null ? "—" : daysRemaining < 0 ? `Vencido hace ${-daysRemaining} d` : `${daysRemaining} días`}
                   </p>
                 </div>
                 <div className="rounded-2xl bg-white/6 px-4 py-3 ring-1 ring-white/8">

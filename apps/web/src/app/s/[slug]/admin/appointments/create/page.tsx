@@ -13,12 +13,15 @@ import type {
 import { AdminPageHeader, MessageBanner } from "@/components/admin/AdminUi";
 import { ModernSelect } from "@/components/ui/ModernSelect";
 import { useLocale } from "@/components/LocaleProvider";
+import { useSalonMoney } from "@/components/admin/SalonMoneyProvider";
+import { Check, Search, X } from "lucide-react";
 
 export default function AdminAppointmentCreatePage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
   const { tr } = useLocale();
+  const { formatMoney } = useSalonMoney();
 
   const [services, setServices] = useState<CatalogService[]>([]);
   const [employees, setEmployees] = useState<PublicEmployee[]>([]);
@@ -28,6 +31,7 @@ export default function AdminAppointmentCreatePage() {
   const [time, setTime] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [query, setQuery] = useState("");
   const [slots, setSlots] = useState<{ start: string; end: string }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -161,166 +165,245 @@ export default function AdminAppointmentCreatePage() {
     description: e.description || undefined,
   }));
 
+  const chosen = services.filter((s) => selectedServices.includes(s.id));
+  const totalPrice = chosen.reduce((acc, s) => acc + (Number(s.price) || 0), 0);
+  const needle = query.trim().toLowerCase();
+  const visibleServices = needle
+    ? services.filter((s) => s.name.toLowerCase().includes(needle))
+    : services;
+  const employeeName = employees.find((e) => e.id === employeeId)?.name;
+  const canSubmit =
+    !saving && Boolean(time) && Boolean(employeeId) && chosen.length > 0 && Boolean(name.trim());
+
   return (
-    <div>
+    <div className="pb-16">
       <AdminPageHeader title={tr("admin.appointmentsCreate")} />
 
       <form
         onSubmit={handleSubmit}
-        className="mx-auto max-w-2xl space-y-8 rounded-3xl border border-brand-ink/8 bg-white p-6 shadow-sm sm:p-8"
+        className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
       >
-        <section className="space-y-3">
-          <div className="flex items-end justify-between gap-3">
-            <label className="label-field mb-0">
-              {tr("booking.selectServices")}
-            </label>
-            {totalDuration > 0 ? (
-              <span className="text-xs font-medium text-brand-text-muted">
-                {totalDuration} min
-              </span>
-            ) : null}
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {services.map((s) => {
-              const active = selectedServices.includes(s.id);
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => toggleService(s.id)}
-                  className={`rounded-2xl border px-4 py-3 text-left transition ${
-                    active
-                      ? "border-brand-primary bg-brand-primary/15 shadow-[0_0_0_1px_var(--brand-primary)]"
-                      : "border-brand-ink/10 bg-brand-warm/40 hover:border-brand-ink/20"
-                  }`}
-                >
-                  <span className="flex items-start justify-between gap-2">
-                    <span className="font-medium text-brand-ink">{s.name}</span>
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] font-bold ${
-                        active
-                          ? "bg-brand-primary text-brand-ink"
-                          : "border border-brand-ink/15 text-transparent"
-                      }`}
-                    >
-                      ✓
-                    </span>
-                  </span>
-                  <span className="mt-1 block text-xs text-brand-text-muted">
-                    {s.durationTime} min · ${s.price}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <div className="space-y-5">
+          <section className="admin-card space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-serif text-xl text-brand-ink">
+                {tr("booking.selectServices")}
+              </h2>
+              {chosen.length > 0 ? (
+                <span className="rounded-full bg-brand-primary/20 px-2.5 py-1 text-xs font-semibold text-brand-primary-dark">
+                  {chosen.length} {chosen.length === 1 ? "elegido" : "elegidos"}
+                </span>
+              ) : null}
+            </div>
 
-        <ModernSelect
-          label={tr("booking.selectEmployee")}
-          placeholder="Elegir profesional"
-          value={employeeId ? String(employeeId) : ""}
-          options={employeeOptions}
-          onChange={(v) => {
-            setEmployeeId(v ? Number(v) : null);
-            setTime("");
-          }}
-          required
-        />
-
-        <section className="space-y-3">
-          <label className="label-field">{tr("booking.selectDate")}</label>
-          <input
-            type="date"
-            className="input-field rounded-2xl py-3.5"
-            value={date}
-            min={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setTime("");
-            }}
-            required
-          />
-        </section>
-
-        {date ? (
-          <section className="space-y-3">
-            <label className="label-field">{tr("booking.selectTime")}</label>
-            {selectedServices.length === 0 || totalDuration <= 0 ? (
-              <p className="rounded-2xl bg-brand-warm px-4 py-3 text-sm text-brand-text-muted">
-                Seleccioná al menos un servicio para ver horarios.
-              </p>
-            ) : !employeeId ? (
-              <p className="rounded-2xl bg-brand-warm px-4 py-3 text-sm text-brand-text-muted">
-                Elegí un profesional para ver horarios.
-              </p>
-            ) : loadingSlots ? (
-              <p className="text-sm text-brand-text-muted">
-                {tr("admin.loading")}
-              </p>
-            ) : slots.length === 0 ? (
-              <p className="rounded-2xl bg-brand-warm px-4 py-3 text-sm text-brand-text-muted">
-                {tr("booking.noSlots")} Probá lunes a sábado (09:00–18:00).
-              </p>
-            ) : (
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {slots.map((s) => {
-                  const t = formatSlotTime(s.start);
-                  const active = time === t;
-                  return (
-                    <button
-                      key={s.start}
-                      type="button"
-                      onClick={() => setTime(t)}
-                      className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                        active
-                          ? "bg-brand-primary text-brand-ink shadow-sm"
-                          : "border border-brand-ink/10 bg-brand-warm/50 text-brand-ink hover:border-brand-primary/60 hover:bg-white"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
+            {services.length > 6 ? (
+              <div className="relative">
+                <Search
+                  size={15}
+                  className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-brand-text-muted"
+                />
+                <input
+                  type="search"
+                  className="input-field !pl-10"
+                  placeholder="Buscar servicio…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
               </div>
-            )}
+            ) : null}
+
+            {/* Lista con altura fija: con muchos servicios se desplaza en lugar de estirar la página. */}
+            <ul className="-mx-1 max-h-[22rem] space-y-1 overflow-y-auto px-1">
+              {visibleServices.length === 0 ? (
+                <li className="py-6 text-center text-sm text-brand-text-muted">
+                  Ningún servicio coincide con «{query}».
+                </li>
+              ) : (
+                visibleServices.map((s) => {
+                  const active = selectedServices.includes(s.id);
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleService(s.id)}
+                        aria-pressed={active}
+                        className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition ${
+                          active
+                            ? "border-brand-primary/60 bg-brand-primary/15"
+                            : "border-transparent hover:bg-brand-ink/[0.04]"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition ${
+                            active
+                              ? "bg-brand-primary text-brand-on-primary"
+                              : "border border-brand-ink/20"
+                          }`}
+                        >
+                          {active ? <Check size={13} strokeWidth={3} /> : null}
+                        </span>
+                        <span className="min-w-0 flex-1 text-sm leading-snug font-medium text-brand-ink">
+                          {s.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-brand-text-muted tabular-nums">
+                          {s.durationTime} min
+                        </span>
+                        <span className="w-20 shrink-0 text-right text-sm font-semibold text-brand-ink tabular-nums">
+                          {formatMoney(s.price)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
           </section>
-        ) : null}
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label-field">{tr("booking.name")}</label>
-            <input
-              className="input-field rounded-2xl"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="label-field">{tr("booking.phone")}</label>
-            <input
-              className="input-field rounded-2xl"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-        </section>
+          <section className="admin-card space-y-5">
+            <h2 className="font-serif text-xl text-brand-ink">Cuándo y con quién</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ModernSelect
+                label={tr("booking.selectEmployee")}
+                placeholder="Elegir profesional"
+                value={employeeId ? String(employeeId) : ""}
+                options={employeeOptions}
+                onChange={(v) => {
+                  setEmployeeId(v ? Number(v) : null);
+                  setTime("");
+                }}
+                required
+              />
+              <div>
+                <label className="label-field">{tr("booking.selectDate")}</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={date}
+                  min={new Date().toLocaleDateString("en-CA")}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    setTime("");
+                  }}
+                  required
+                />
+              </div>
+            </div>
 
-        {error ? <MessageBanner message={error} type="error" /> : null}
+            <div>
+              <label className="label-field">{tr("booking.selectTime")}</label>
+              {!date || chosen.length === 0 || !employeeId ? (
+                <p className="rounded-xl bg-brand-ink/[0.04] px-4 py-3 text-sm text-brand-text-muted">
+                  Elegí servicios, profesional y fecha para ver los horarios libres.
+                </p>
+              ) : loadingSlots ? (
+                <p className="text-sm text-brand-text-muted">{tr("admin.loading")}</p>
+              ) : slots.length === 0 ? (
+                <p className="rounded-xl bg-brand-ink/[0.04] px-4 py-3 text-sm text-brand-text-muted">
+                  {tr("booking.noSlots")} Probá otro día o profesional.
+                </p>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                  {slots.map((s) => {
+                    const t = formatSlotTime(s.start);
+                    const active = time === t;
+                    return (
+                      <button
+                        key={s.start}
+                        type="button"
+                        onClick={() => setTime(t)}
+                        className={`rounded-xl px-2 py-2 text-sm font-semibold tabular-nums transition ${
+                          active
+                            ? "bg-brand-primary text-brand-on-primary shadow-sm"
+                            : "border border-brand-ink/10 text-brand-ink hover:border-brand-primary/60"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
 
-        <button
-          type="submit"
-          disabled={
-            saving ||
-            !time ||
-            !employeeId ||
-            selectedServices.length === 0 ||
-            !name.trim()
-          }
-          className="btn-primary w-full disabled:opacity-40 sm:w-auto"
-        >
-          {saving ? tr("admin.saving") : tr("admin.create")}
-        </button>
+          <section className="admin-card space-y-4">
+            <h2 className="font-serif text-xl text-brand-ink">Clienta</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label-field">{tr("booking.name")}</label>
+                <input
+                  className="input-field"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label-field">{tr("booking.phone")}</label>
+                <input
+                  className="input-field"
+                  inputMode="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside className="admin-card space-y-4 lg:sticky lg:top-24">
+          <h2 className="font-serif text-xl text-brand-ink">Resumen</h2>
+          {chosen.length === 0 ? (
+            <p className="text-sm text-brand-text-muted">Todavía no elegiste servicios.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {chosen.map((s) => (
+                <li key={s.id} className="flex items-center gap-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate text-brand-ink">{s.name}</span>
+                  <span className="tabular-nums text-brand-text-muted">{formatMoney(s.price)}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleService(s.id)}
+                    aria-label={`Quitar ${s.name}`}
+                    className="rounded-full p-0.5 text-brand-text-muted hover:bg-brand-ink/[0.06] hover:text-brand-ink"
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <dl className="space-y-1.5 border-t border-brand-ink/[0.08] pt-4 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-brand-text-muted">Profesional</dt>
+              <dd className="truncate text-brand-ink">{employeeName ?? "—"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-brand-text-muted">Fecha y hora</dt>
+              <dd className="text-brand-ink tabular-nums">
+                {date ? `${date.split("-").reverse().join("/")}${time ? ` · ${time}` : ""}` : "—"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-brand-text-muted">Duración</dt>
+              <dd className="text-brand-ink tabular-nums">{totalDuration ? `${totalDuration} min` : "—"}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-3 pt-2">
+              <dt className="font-semibold text-brand-ink">Total</dt>
+              <dd className="font-serif text-2xl text-brand-ink tabular-nums">{formatMoney(totalPrice)}</dd>
+            </div>
+          </dl>
+
+          {error ? <MessageBanner message={error} type="error" /> : null}
+
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="btn-primary w-full disabled:opacity-40"
+          >
+            {saving ? tr("admin.saving") : tr("admin.create")}
+          </button>
+        </aside>
       </form>
     </div>
   );

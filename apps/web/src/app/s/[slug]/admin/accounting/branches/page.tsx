@@ -17,6 +17,8 @@ type BranchProfit = {
   name: string;
   slug: string;
   income: number;
+  cogs?: number;
+  supplies?: number;
   expenses: number;
   profit: number;
   orderCount: number;
@@ -28,17 +30,19 @@ type OrgProfit = {
   to: string;
   branches: BranchProfit[];
   income: number;
+  cogs?: number;
+  supplies?: number;
   expenses: number;
   profit: number;
 };
 
 function monthStartIso() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString("en-CA");
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
 }
 
 export default function AccountingBranchesProfitPage() {
@@ -74,12 +78,9 @@ export default function AccountingBranchesProfitPage() {
 
   const query = useMemo(() => {
     const q = new URLSearchParams();
-    if (from) q.set("from", new Date(from).toISOString());
-    if (to) {
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
-      q.set("to", end.toISOString());
-    }
+    // Días calendario; el servidor los interpreta en el horario del salón.
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
     return q.toString();
   }, [from, to]);
 
@@ -151,14 +152,20 @@ export default function AccountingBranchesProfitPage() {
 
       {!loading && data ? (
         <>
-          <div className="mb-8 grid gap-4 sm:grid-cols-3">
-            <div className="admin-stat-card pl-6">
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="admin-stat-card">
               <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
                 Ingresos
               </p>
               <p className="mt-3 font-serif text-3xl">{formatMoney(data.income)}</p>
             </div>
-            <div className="admin-stat-card pl-6">
+            <div className="admin-stat-card">
+              <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
+                Costo de productos e insumos
+              </p>
+              <p className="mt-3 font-serif text-3xl">{formatMoney((data.cogs ?? 0) + (data.supplies ?? 0))}</p>
+            </div>
+            <div className="admin-stat-card">
               <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
                 Egresos
               </p>
@@ -166,7 +173,7 @@ export default function AccountingBranchesProfitPage() {
                 {formatMoney(data.expenses)}
               </p>
             </div>
-            <div className="admin-stat-card pl-6">
+            <div className="admin-stat-card">
               <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-text-muted uppercase">
                 Utilidad
               </p>
@@ -180,6 +187,7 @@ export default function AccountingBranchesProfitPage() {
                 <tr>
                   <th className="px-4 py-3 font-medium">Sucursal</th>
                   <th className="px-4 py-3 font-medium">Ingresos</th>
+                  <th className="px-4 py-3 font-medium">Costo prod. e insumos</th>
                   <th className="px-4 py-3 font-medium">Egresos</th>
                   <th className="px-4 py-3 font-medium">Utilidad</th>
                   <th className="px-4 py-3 font-medium" />
@@ -193,9 +201,9 @@ export default function AccountingBranchesProfitPage() {
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium text-brand-ink">{b.name}</p>
-                      <p className="text-xs text-brand-text-muted">/{b.slug}</p>
                     </td>
                     <td className="px-4 py-3">{formatMoney(b.income)}</td>
+                    <td className="px-4 py-3">{formatMoney((b.cogs ?? 0) + (b.supplies ?? 0))}</td>
                     <td className="px-4 py-3">{formatMoney(b.expenses)}</td>
                     <td className="px-4 py-3 font-medium">
                       {formatMoney(b.profit)}

@@ -38,8 +38,8 @@ export function AccountStatusBanner({ slug }: { slug: string }) {
     <div
       className={`no-print border-b px-4 py-3 text-sm sm:px-6 lg:px-10 ${
         hard
-          ? "border-red-200 bg-red-50 text-red-900"
-          : "border-amber-200 bg-amber-50 text-amber-950"
+          ? "border-red-200 bg-red-50 text-red-900 dark:border-red-400/25 dark:bg-red-400/[0.08] dark:text-red-100"
+          : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-300/25 dark:bg-amber-300/[0.07] dark:text-amber-100"
       }`}
     >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
@@ -47,7 +47,7 @@ export function AccountStatusBanner({ slug }: { slug: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/s/${slug}/admin/billing`}
-            className="rounded-xl bg-brand-elevated/80 px-3 py-1.5 text-xs font-semibold"
+            className="rounded-xl bg-white/80 px-3 py-1.5 text-xs font-semibold ring-1 ring-current/20 transition hover:bg-white dark:bg-white/10 dark:hover:bg-white/15"
           >
             Ver facturación
           </Link>
@@ -55,7 +55,7 @@ export function AccountStatusBanner({ slug }: { slug: string }) {
             href={SITE.whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-elevated/80 px-3 py-1.5 text-xs font-semibold"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white/80 px-3 py-1.5 text-xs font-semibold ring-1 ring-current/20 transition hover:bg-white dark:bg-white/10 dark:hover:bg-white/15"
           >
             <MessageCircle size={14} />
             WhatsApp

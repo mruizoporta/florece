@@ -71,6 +71,7 @@ export class EmployeesService {
     phone?: string;
     baseSalary?: number;
     commissionRate?: number;
+    productCommissionRate?: number;
   }) {
     const now = new Date();
     const tenantId = this.tenantId();
@@ -83,6 +84,7 @@ export class EmployeesService {
         status: data.status ?? true,
         baseSalary: this.clampMoney(data.baseSalary ?? 0),
         commissionRate: this.clampRate(data.commissionRate ?? 0),
+        productCommissionRate: this.clampRate(data.productCommissionRate ?? 0),
         tenantId,
         createdAt: now,
         updatedAt: now,
@@ -130,6 +132,7 @@ export class EmployeesService {
       phone?: string;
       baseSalary?: number;
       commissionRate?: number;
+      productCommissionRate?: number;
     },
   ) {
     await this.requireEmployee(employeeId);
@@ -146,6 +149,9 @@ export class EmployeesService {
           : {}),
         ...(data.commissionRate !== undefined
           ? { commissionRate: this.clampRate(data.commissionRate) }
+          : {}),
+        ...(data.productCommissionRate !== undefined
+          ? { productCommissionRate: this.clampRate(data.productCommissionRate) }
           : {}),
         updatedAt: now,
       },
@@ -223,33 +229,35 @@ export class EmployeesService {
     await this.requireEmployee(employeeId);
     const tenantId = this.tenantId();
     const now = new Date();
+    // Validar todo antes de borrar: un horario inválido no debe dejarla sin horario.
+    const rows = entries.map((entry) => ({
+      employeeId,
+      weekday: entry.weekday,
+      startTime: this.parseTime(entry.start_time),
+      endTime: this.parseTime(entry.end_time),
+      status: entry.status ?? true,
+      tenantId,
+      createdAt: now,
+      updatedAt: now,
+    }));
 
-    await this.prisma.schedule.deleteMany({ where: { employeeId } });
-
-    if (entries.length === 0) {
-      return [];
-    }
-
-    await this.prisma.schedule.createMany({
-      data: entries.map((entry) => ({
-        employeeId,
-        weekday: entry.weekday,
-        startTime: this.parseTime(entry.start_time),
-        endTime: this.parseTime(entry.end_time),
-        status: entry.status ?? true,
-        tenantId,
-        createdAt: now,
-        updatedAt: now,
-      })),
-    });
+    await this.prisma.$transaction([
+      this.prisma.schedule.deleteMany({ where: { employeeId } }),
+      this.prisma.schedule.createMany({ data: rows }),
+    ]);
+    if (rows.length === 0) return [];
 
     return this.getSchedule(employeeId);
   }
 
   private parseTime(value: string): Date {
-    const parts = value.split(':').map(Number);
-    const date = new Date(Date.UTC(1970, 0, 1, parts[0] ?? 0, parts[1] ?? 0, 0));
-    return date;
+    const match = /^(\d{1,2}):(\d{2})/.exec(String(value ?? ''));
+    const hours = Number(match?.[1]);
+    const minutes = Number(match?.[2]);
+    if (!match || hours > 23 || minutes > 59) {
+      throw new BadRequestException(`Hora inválida en el horario: «${value}»`);
+    }
+    return new Date(Date.UTC(1970, 0, 1, hours, minutes, 0));
   }
 
   private clampMoney(value: number) {

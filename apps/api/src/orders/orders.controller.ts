@@ -14,6 +14,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequireFeature } from '../common/decorators/feature.decorator';
 import { FeatureGuard } from '../common/guards/feature.guard';
 import { OrdersService } from './orders.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { AuthUser } from '../common/types/auth.types';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -143,14 +145,12 @@ export class OrdersController {
     @Body()
     body: {
       quantity?: number;
-      line_discount?: number;
       employee_id?: number | null;
       employeeId?: number | null;
     },
   ) {
     return this.ordersService.updateItem(BigInt(id), BigInt(itemId), {
       quantity: body.quantity,
-      line_discount: body.line_discount,
       employeeId:
         body.employee_id !== undefined
           ? body.employee_id
@@ -161,6 +161,41 @@ export class OrdersController {
   @Delete(':id/items/:itemId')
   removeItem(@Param('id') id: string, @Param('itemId') itemId: string) {
     return this.ordersService.removeItem(BigInt(id), BigInt(itemId));
+  }
+
+  @Post(':id/vouchers')
+  applyVoucher(@Param('id') id: string, @Body() body: { code?: string }) {
+    return this.ordersService.applyVoucher(BigInt(id), body?.code ?? '');
+  }
+
+  @Post(':id/discounts')
+  @Roles('Admin', 'Cajero')
+  addDiscount(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() body: { type?: string; value?: number; reason?: string },
+  ) {
+    return this.ordersService.addManualDiscount(BigInt(id), user, body ?? {});
+  }
+
+  @Post(':id/coupon')
+  applyCoupon(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() body: { code?: string }) {
+    return this.ordersService.applyCoupon(BigInt(id), body?.code ?? '', user.id);
+  }
+
+  @Delete(':id/discounts/:discountId')
+  removeDiscount(@Param('id') id: string, @Param('discountId') discountId: string) {
+    return this.ordersService.removeDiscount(BigInt(id), BigInt(discountId));
+  }
+
+  @Post(':id/discounts/:discountId/restore')
+  restoreDiscount(@Param('id') id: string, @Param('discountId') discountId: string) {
+    return this.ordersService.removeDiscount(BigInt(id), BigInt(discountId), true);
+  }
+
+  @Delete(':id/vouchers/:code')
+  removeVoucher(@Param('id') id: string, @Param('code') code: string) {
+    return this.ordersService.removeVoucher(BigInt(id), code);
   }
 
   @Patch(':id/payments')
@@ -195,13 +230,13 @@ export class OrdersController {
       consumablesReason?: string;
     },
   ) {
-    const consumables = body.consumables?.map((row) => ({
+    const consumables = body?.consumables?.map((row) => ({
       productId: Number(row.product_id ?? row.productId),
       quantity: Number(row.quantity),
     }));
     return this.ordersService.finalize(BigInt(id), {
       consumables,
-      consumablesReason: body.consumables_reason ?? body.consumablesReason,
+      consumablesReason: body?.consumables_reason ?? body?.consumablesReason,
     });
   }
 
@@ -211,6 +246,6 @@ export class OrdersController {
     @Param('id') id: string,
     @Body() body: { reason?: string },
   ) {
-    return this.ordersService.cancel(BigInt(id), body.reason);
+    return this.ordersService.cancel(BigInt(id), body?.reason);
   }
 }
