@@ -101,3 +101,22 @@ NEXT_PUBLIC_MARKETING_INSTAGRAM_URL=https://www.instagram.com/florece.app
 | `npm run db:seed` | Planes + demo + platform owner |
 
 Cutover / DNS: [docs/CUTOVER.md](docs/CUTOVER.md).
+
+## Actualizar la app móvil
+
+**Cambios solo de código (pantallas, textos, arreglos):** llegan solos, sin pasar por las tiendas.
+
+```bash
+cd apps/mobile && npm run update -- "qué cambió"
+```
+
+La app los descarga al abrirse y los aplica la próxima vez que se abre. Solo llegan a teléfonos con la **misma versión** (`version` de `app.json`).
+
+**Cambios nativos** (permisos, módulos nuevos, versión de Expo): subí `version` en `app.json`, compilá y subí a las tiendas como siempre.
+
+**Obligar a actualizar:** en SupportFlow → Productos → este producto → **Versiones de la app** (en el resumen):
+
+- **Mínima**: por debajo de esta versión, la app se bloquea con un botón a la tienda.
+- **Última**: por debajo, la app sugiere actualizar (se puede cerrar).
+
+Se guarda en la base de datos del producto por el puente; la app lo toma la próxima vez que se abre. Poné la mínima **después** de que la versión nueva ya esté aprobada en las dos tiendas.

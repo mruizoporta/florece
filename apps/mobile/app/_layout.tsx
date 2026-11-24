@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/cormorant-garamond';
 import { DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold } from '@expo-google-fonts/dm-sans';
 import * as Notifications from 'expo-notifications';
+import { UpdateGate } from '../src/components/UpdateGate';
 import { routeFromUrl } from '../src/lib/links';
 import { rutaDeAviso } from '../src/lib/push';
 import { color, font } from '../src/theme';
@@ -60,21 +61,23 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: color.base },
-          headerTintColor: color.ink,
-          headerShadowVisible: false,
-          headerTitleStyle: { fontFamily: font.display, fontSize: 22 },
-          headerBackButtonDisplayMode: 'minimal',
-          contentStyle: { backgroundColor: color.base },
-        }}
-      >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="citas" options={{ title: 'Mis citas' }} />
-        <Stack.Screen name="s/[slug]" options={{ headerShown: false }} />
-        <Stack.Screen name="salon" options={{ headerShown: false }} />
-      </Stack>
+      <UpdateGate>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: color.base },
+            headerTintColor: color.ink,
+            headerShadowVisible: false,
+            headerTitleStyle: { fontFamily: font.display, fontSize: 22 },
+            headerBackButtonDisplayMode: 'minimal',
+            contentStyle: { backgroundColor: color.base },
+          }}
+        >
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="citas" options={{ title: 'Mis citas' }} />
+          <Stack.Screen name="s/[slug]" options={{ headerShown: false }} />
+          <Stack.Screen name="salon" options={{ headerShown: false }} />
+        </Stack>
+      </UpdateGate>
     </SafeAreaProvider>
   );
 }

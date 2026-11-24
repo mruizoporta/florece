@@ -1065,3 +1065,12 @@ model PushToken {
   @@index([appointmentId])
   @@map("push_tokens")
 }
+
+/// Ajustes de toda la plataforma (no de un salón): los cambia el equipo desde SupportFlow.
+model PlatformSetting {
+  key       String   @id @db.VarChar(80)
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
+}

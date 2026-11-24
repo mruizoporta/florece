@@ -18,7 +18,6 @@
       "associatedDomains": [
         "applinks:floreceapp.com"
       ],
-      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -75,6 +74,14 @@
         "projectId": "9114d82a-15d3-4c1d-801a-1ea97b0204ac"
       }
     },
-    "owner": "mruizoporta"
+    "owner": "mruizoporta",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9114d82a-15d3-4c1d-801a-1ea97b0204ac",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }
